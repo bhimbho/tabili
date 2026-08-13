@@ -11,6 +11,8 @@ import { DdlView } from "../schema-editor/DdlView";
 import { useColumns } from "../../hooks/useSchema";
 import { useTableRows, type TableQuery } from "../../hooks/useTableData";
 import { useChangesStore } from "../../stores/changesStore";
+import { useConsoleStore } from "../../stores/consoleStore";
+import { friendlyError } from "../../lib/errors";
 
 interface TableViewProps {
   connectionId: string;
@@ -78,6 +80,13 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
     setQuery((q) => ({ ...q, filters: toColumnFilters(drafts, columnInfos ?? []) }));
   }
 
+  // Applying one filter disables the rest, so the row you clicked is what you get.
+  function applyOnly(index: number) {
+    const next = drafts.map((d, i) => ({ ...d, enabled: i === index }));
+    setDrafts(next);
+    setQuery((q) => ({ ...q, filters: toColumnFilters(next, columnInfos ?? []) }));
+  }
+
   function toggleSort(column: string) {
     setQuery((q) =>
       q.orderBy === column
@@ -110,6 +119,7 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
           drafts={drafts}
           onChange={setDrafts}
           onApply={applyFilters}
+          onApplyOne={applyOnly}
           generatedSql={generatedSql}
         />
       )}
@@ -135,8 +145,14 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
               </div>
             )}
             {error && (
-              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-400">
-                {(error as Error).message}
+              <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                <p className="text-sm text-red-400">{friendlyError(error)}</p>
+                <button
+                  onClick={() => useConsoleStore.getState().setOpen(true)}
+                  className="text-xs text-neutral-500 underline-offset-2 hover:underline"
+                >
+                  Show details in console
+                </button>
               </div>
             )}
             {rowPage && !error && (

@@ -31,9 +31,9 @@ export const commands = {
 	getTriggers: (connectionId: string, schema: string | null, table: string) => typedError<TriggerInfo[], AppError>(__TAURI_INVOKE("get_triggers", { connectionId, schema, table })),
 	getTableDdl: (connectionId: string, schema: string | null, table: string) => typedError<string, AppError>(__TAURI_INVOKE("get_table_ddl", { connectionId, schema, table })),
 	fetchRows: (connectionId: string, schema: string | null, table: string, limit: number, offset: number, orderBy: string | null, orderDesc: boolean, filters: ColumnFilter[]) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, schema, table, limit, offset, orderBy, orderDesc, filters })),
-	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
-	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
-	deleteRows: (connectionId: string, schema: string | null, table: string, pks: { [key in string]: DbValue }[]) => typedError<null, AppError>(__TAURI_INVOKE("delete_rows", { connectionId, schema, table, pks })),
+	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
+	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
+	deleteRows: (connectionId: string, schema: string | null, table: string, pks: { [key in string]: DbValue }[]) => typedError<string[], AppError>(__TAURI_INVOKE("delete_rows", { connectionId, schema, table, pks })),
 	/**
 	 *  Returns the SQL that *would* run, without touching the database. The UI shows
 	 *  this in a confirmation dialog; `execute_ddl` is a separate call so nothing
@@ -43,6 +43,12 @@ export const commands = {
 	previewAddColumn: (connectionId: string, schema: string | null, table: string, column: ColumnSpec) => typedError<string[], AppError>(__TAURI_INVOKE("preview_add_column", { connectionId, schema, table, column })),
 	previewDropColumn: (connectionId: string, schema: string | null, table: string, column: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_drop_column", { connectionId, schema, table, column })),
 	executeDdl: (connectionId: string, statements: string[]) => typedError<null, AppError>(__TAURI_INVOKE("execute_ddl", { connectionId, statements })),
+	serverInfo: (connectionId: string) => typedError<ServerInfo, AppError>(__TAURI_INVOKE("server_info", { connectionId })),
+	listStatementLog: (limit: number) => typedError<StatementLogEntry[], AppError>(__TAURI_INVOKE("list_statement_log", { limit })),
+	clearStatementLog: () => typedError<null, AppError>(__TAURI_INVOKE("clear_statement_log")),
+	listSavedQueries: () => typedError<SavedQuery[], AppError>(__TAURI_INVOKE("list_saved_queries")),
+	saveQuery: (name: string, sql: string) => typedError<SavedQuery, AppError>(__TAURI_INVOKE("save_query", { name, sql })),
+	deleteSavedQuery: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_saved_query", { id })),
 };
 
 /* Types */
@@ -121,6 +127,7 @@ export type IndexInfo = {
 export type NewConnectionRequest = {
 	dialect: SqlDialect,
 	name: string,
+	color: string | null,
 	host: string | null,
 	port: number | null,
 	username: string | null,
@@ -138,18 +145,29 @@ export type OpenedConnection = {
 	connectionId: string,
 	dialect: SqlDialect,
 	displayName: string,
+	color: string | null,
 };
 
 export type RowPage = {
 	columns: string[],
 	rows: { [key in string]: DbValue }[],
 	hasMore: boolean,
+	/**
+	 *  The statement actually sent to the server, surfaced in the console so the
+	 *  UI never has to guess what it ran.
+	 */
+	sql: string,
 };
 
 export type SavedConnectionRecord = {
 	id: string,
 	name: string,
 	dialect: SqlDialect,
+	/**
+	 *  Hex accent used across the rail and header. Red conventionally marks
+	 *  production so destructive actions are visually obvious.
+	 */
+	color: string | null,
 	host: string | null,
 	port: number | null,
 	username: string | null,
@@ -161,11 +179,33 @@ export type SavedConnectionRecord = {
 	filePath: string | null,
 };
 
+export type SavedQuery = {
+	id: string,
+	name: string,
+	sql: string,
+	createdAt: string,
+};
+
 export type SchemaInfo = {
 	name: string,
 };
 
+export type ServerInfo = {
+	version: string,
+	database: string,
+};
+
 export type SqlDialect = "Postgres" | "MySql" | "Sqlite";
+
+export type StatementLogEntry = {
+	id: string,
+	connectionId: string,
+	sql: string,
+	success: boolean,
+	error: string | null,
+	durationMs: number,
+	executedAt: string,
+};
 
 /**
  *  A structural diff between the current and desired shape of a table, used to

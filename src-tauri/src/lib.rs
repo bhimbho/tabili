@@ -36,6 +36,12 @@ pub fn run() {
         commands::ddl::preview_add_column,
         commands::ddl::preview_drop_column,
         commands::ddl::execute_ddl,
+        commands::console::server_info,
+        commands::console::list_statement_log,
+        commands::console::clear_statement_log,
+        commands::console::list_saved_queries,
+        commands::console::save_query,
+        commands::console::delete_saved_query,
     ]);
 
     #[cfg(debug_assertions)]

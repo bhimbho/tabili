@@ -1,4 +1,5 @@
 pub mod connections;
+pub mod console;
 pub mod ddl;
 pub mod rows;
 pub mod schema;

@@ -64,14 +64,17 @@ interface FilterBarProps {
   columns: ColumnInfo[];
   drafts: DraftFilter[];
   onChange: (drafts: DraftFilter[]) => void;
+  /** Applies every enabled filter. */
   onApply: () => void;
+  /** Applies just this row, disabling the others so it can be tried in isolation. */
+  onApplyOne: (index: number) => void;
   generatedSql?: string;
 }
 
 const iconBtn =
   "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-neutral-800 text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100";
 
-export function FilterBar({ columns, drafts, onChange, onApply, generatedSql }: FilterBarProps) {
+export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, generatedSql }: FilterBarProps) {
   const [showSql, setShowSql] = useState(false);
 
   function update(i: number, patch: Partial<DraftFilter>) {
@@ -144,6 +147,13 @@ export function FilterBar({ columns, drafts, onChange, onApply, generatedSql }: 
               placeholder={NO_VALUE.includes(d.operator) ? "—" : "value"}
               className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500 disabled:opacity-40"
             />
+            <button
+              onClick={() => onApplyOne(i)}
+              title="Apply only this filter"
+              className="shrink-0 rounded-md border border-neutral-800 px-2 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+            >
+              Apply
+            </button>
             <button onClick={() => removeAt(i)} title="Remove filter" className={iconBtn}>
               −
             </button>
@@ -175,7 +185,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, generatedSql }: 
             onClick={onApply}
             className="rounded-md bg-indigo-600 px-3 py-0.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
           >
-            Apply
+            Apply All
           </button>
         </div>
       </div>
