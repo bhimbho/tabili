@@ -55,7 +55,7 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
 
   const generatedSql = useMemo(() => {
     const where = drafts
-      .filter((d) => d.column)
+      .filter((d) => d.enabled && d.column)
       .map((d) => {
         if (d.operator === "IsNull") return `${d.column} IS NULL`;
         if (d.operator === "IsNotNull") return `${d.column} IS NOT NULL`;

@@ -127,12 +127,15 @@ impl DatabaseDriver for PostgresDriver {
         let mut idx = 0;
         let where_clause = filter::build_where(
             &opts.filters,
-            quote_ident,
-            || {
-                idx += 1;
-                format!("${idx}")
+            filter::Dialect {
+                quote: quote_ident,
+                placeholder: || {
+                    idx += 1;
+                    format!("${idx}")
+                },
+                cast_text: |col: &str| format!("{col}::text"),
+                like: "ILIKE",
             },
-            |col| format!("{col}::text"),
         );
         let order = filter::order_clause(opts.order_by.as_ref(), opts.order_desc, quote_ident);
         let query = format!(
