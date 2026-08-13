@@ -24,6 +24,7 @@ function MainPane() {
       connectionId={activeTab.connectionId}
       table={activeTab.title}
       schema={activeTab.schema}
+      seedFilter={activeTab.seedFilter}
     />
   );
 }

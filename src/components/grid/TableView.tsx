@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { DataGrid } from "./DataGrid";
+import { DataGrid, type FkMap } from "./DataGrid";
+import { RowDetailsPanel } from "./RowDetailsPanel";
 import { GridToolbar } from "./GridToolbar";
 import { PendingChangesDialog } from "./PendingChangesDialog";
 import { FilterBar, toColumnFilters, type DraftFilter } from "./FilterBar";
@@ -8,9 +9,11 @@ import { StructureView } from "../schema-editor/StructureView";
 import { IndexesView } from "../schema-editor/IndexesView";
 import { TriggersView } from "../schema-editor/TriggersView";
 import { DdlView } from "../schema-editor/DdlView";
-import { useColumns } from "../../hooks/useSchema";
+import { useColumns, useForeignKeys } from "../../hooks/useSchema";
 import { useTableRows, type TableQuery } from "../../hooks/useTableData";
 import { useChangesStore } from "../../stores/changesStore";
+import { useTabsStore } from "../../stores/tabsStore";
+import type { DbValue } from "../../bindings";
 import { useConsoleStore } from "../../stores/consoleStore";
 import { friendlyError } from "../../lib/errors";
 
@@ -18,6 +21,7 @@ interface TableViewProps {
   connectionId: string;
   table: string;
   schema: string | null;
+  seedFilter?: { column: string; value: string };
 }
 
 const TABS = ["data", "structure", "indexes", "triggers", "ddl"] as const;
@@ -42,10 +46,17 @@ function TabStrip({ tab, onChange }: { tab: TableTab; onChange: (t: TableTab) =>
   );
 }
 
-export function TableView({ connectionId, table, schema }: TableViewProps) {
+export function TableView({ connectionId, table, schema, seedFilter }: TableViewProps) {
   const [tab, setTab] = useState<TableTab>("data");
-  const [drafts, setDrafts] = useState<DraftFilter[]>([]);
+  // A tab opened by following a reference starts filtered to the referenced row.
+  const [drafts, setDrafts] = useState<DraftFilter[]>(() =>
+    seedFilter
+      ? [{ column: seedFilter.column, operator: "Equals", value: seedFilter.value, enabled: true }]
+      : [],
+  );
   const [query, setQuery] = useState<TableQuery>({ filters: [], orderBy: null, orderDesc: false });
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [activeRow, setActiveRow] = useState<Record<string, DbValue> | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
 
@@ -53,7 +64,43 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
   const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, schema, query);
   const addInsert = useChangesStore((s) => s.addInsert);
 
+  const { data: fks } = useForeignKeys(connectionId, table, schema ?? undefined);
+  const openTab = useTabsStore((s) => s.openTab);
+
   const hasPk = (columnInfos ?? []).some((c) => c.isPrimaryKey);
+
+  // Single-column references only: composite keys have no unambiguous single
+  // cell to hang the jump affordance off.
+  const foreignKeys = useMemo<FkMap>(() => {
+    const map: FkMap = {};
+    for (const fk of fks ?? []) {
+      if (fk.columns.length === 1 && fk.referencedColumns.length === 1) {
+        map[fk.columns[0]] = { table: fk.referencedTable, column: fk.referencedColumns[0] };
+      }
+    }
+    return map;
+  }, [fks]);
+
+  function followForeignKey(target: { table: string; column: string }, value: DbValue) {
+    const raw =
+      value.type === "Int" || value.type === "Float" || value.type === "Bool"
+        ? String(value.value)
+        : value.type === "Text" ||
+            value.type === "Decimal" ||
+            value.type === "DateTime" ||
+            value.type === "Uuid"
+          ? value.value
+          : "";
+    if (!raw) return;
+    openTab({
+      id: `${connectionId}:${schema ?? ""}:${target.table}:${target.column}=${raw}`,
+      connectionId,
+      title: target.table,
+      kind: "table",
+      schema,
+      seedFilter: { column: target.column, value: raw },
+    });
+  }
 
   const generatedSql = useMemo(() => {
     const where = drafts
@@ -75,6 +122,16 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
     const order = query.orderBy ? ` ORDER BY ${query.orderBy} ${query.orderDesc ? "DESC" : "ASC"}` : "";
     return `SELECT * FROM ${table}${where.length ? ` WHERE ${where.join(" AND ")}` : ""}${order} LIMIT 500;`;
   }, [drafts, query.orderBy, query.orderDesc, table]);
+
+  // Apply the seeded filter once columns are known so the value is typed correctly.
+  useEffect(() => {
+    if (!seedFilter || !columnInfos) return;
+    setQuery((q) =>
+      q.filters.length > 0
+        ? q
+        : { ...q, filters: toColumnFilters(drafts, columnInfos) },
+    );
+  }, [seedFilter, columnInfos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyFilters() {
     setQuery((q) => ({ ...q, filters: toColumnFilters(drafts, columnInfos ?? []) }));
@@ -111,6 +168,8 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
           setAddColumnOpen(true);
         }}
         onReviewChanges={() => setReviewOpen(true)}
+        detailsOpen={detailsOpen}
+        onToggleDetails={() => setDetailsOpen((d) => !d)}
       />
 
       {tab === "data" && (
@@ -156,17 +215,34 @@ export function TableView({ connectionId, table, schema }: TableViewProps) {
               </div>
             )}
             {rowPage && !error && (
-              <DataGrid
-                connectionId={connectionId}
-                table={table}
-                schema={schema}
-                columns={rowPage.columns}
-                rows={rowPage.rows}
-                columnInfos={columnInfos ?? []}
-                sortColumn={query.orderBy}
-                sortDesc={query.orderDesc}
-                onToggleSort={toggleSort}
-              />
+              <div className="flex h-full">
+                <div className="min-w-0 flex-1">
+                  <DataGrid
+                    connectionId={connectionId}
+                    table={table}
+                    schema={schema}
+                    columns={rowPage.columns}
+                    rows={rowPage.rows}
+                    columnInfos={columnInfos ?? []}
+                    sortColumn={query.orderBy}
+                    sortDesc={query.orderDesc}
+                    onToggleSort={toggleSort}
+                    foreignKeys={foreignKeys}
+                    onFollowForeignKey={followForeignKey}
+                    onActiveRowChange={setActiveRow}
+                  />
+                </div>
+                {detailsOpen && (
+                  <RowDetailsPanel
+                    row={activeRow}
+                    columns={rowPage.columns}
+                    columnInfos={columnInfos ?? []}
+                    foreignKeys={foreignKeys}
+                    onFollowForeignKey={followForeignKey}
+                    onClose={() => setDetailsOpen(false)}
+                  />
+                )}
+              </div>
             )}
           </>
         )}
