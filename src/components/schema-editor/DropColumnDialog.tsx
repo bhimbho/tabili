@@ -6,12 +6,13 @@ import { commands } from "../../bindings";
 interface DropColumnDialogProps {
   connectionId: string;
   table: string;
+  schema: string | null;
   /** Non-null opens the dialog for that column. */
   column: string | null;
   onClose: () => void;
 }
 
-export function DropColumnDialog({ connectionId, table, column, onClose }: DropColumnDialogProps) {
+export function DropColumnDialog({ connectionId, table, schema, column, onClose }: DropColumnDialogProps) {
   const queryClient = useQueryClient();
   const [preview, setPreview] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,7 +28,7 @@ export function DropColumnDialog({ connectionId, table, column, onClose }: DropC
     }
     let cancelled = false;
     (async () => {
-      const result = await commands.previewDropColumn(connectionId, table, column);
+      const result = await commands.previewDropColumn(connectionId, schema, table, column);
       if (cancelled) return;
       if (result.status === "error") setError(result.error.message);
       else setPreview(result.data);
@@ -35,7 +36,7 @@ export function DropColumnDialog({ connectionId, table, column, onClose }: DropC
     return () => {
       cancelled = true;
     };
-  }, [connectionId, table, column]);
+  }, [connectionId, schema, table, column]);
 
   async function handleApply() {
     if (!preview) return;
@@ -47,8 +48,8 @@ export function DropColumnDialog({ connectionId, table, column, onClose }: DropC
       setError(result.error.message);
       return;
     }
-    queryClient.invalidateQueries({ queryKey: ["columns", connectionId, table] });
-    queryClient.invalidateQueries({ queryKey: ["rows", connectionId, table] });
+    queryClient.invalidateQueries({ queryKey: ["columns", connectionId, schema, table] });
+    queryClient.invalidateQueries({ queryKey: ["rows", connectionId, schema, table] });
     onClose();
   }
 

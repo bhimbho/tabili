@@ -22,25 +22,26 @@ export const commands = {
 	listSavedConnections: () => typedError<SavedConnectionRecord[], AppError>(__TAURI_INVOKE("list_saved_connections")),
 	connectSaved: (id: string) => typedError<OpenedConnection, AppError>(__TAURI_INVOKE("connect_saved", { id })),
 	deleteSavedConnection: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_saved_connection", { id })),
-	listTables: (connectionId: string) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId })),
-	listViews: (connectionId: string) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId })),
-	getColumns: (connectionId: string, table: string) => typedError<ColumnInfo[], AppError>(__TAURI_INVOKE("get_columns", { connectionId, table })),
-	getIndexes: (connectionId: string, table: string) => typedError<IndexInfo[], AppError>(__TAURI_INVOKE("get_indexes", { connectionId, table })),
-	getForeignKeys: (connectionId: string, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, table })),
-	getTriggers: (connectionId: string, table: string) => typedError<TriggerInfo[], AppError>(__TAURI_INVOKE("get_triggers", { connectionId, table })),
-	getTableDdl: (connectionId: string, table: string) => typedError<string, AppError>(__TAURI_INVOKE("get_table_ddl", { connectionId, table })),
-	fetchRows: (connectionId: string, table: string, limit: number, offset: number, orderBy: string | null, orderDesc: boolean, filters: ColumnFilter[]) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, table, limit, offset, orderBy, orderDesc, filters })),
-	insertRow: (connectionId: string, table: string, values: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("insert_row", { connectionId, table, values })),
-	updateRow: (connectionId: string, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("update_row", { connectionId, table, pk, changes })),
-	deleteRows: (connectionId: string, table: string, pks: { [key in string]: DbValue }[]) => typedError<null, AppError>(__TAURI_INVOKE("delete_rows", { connectionId, table, pks })),
+	listSchemas: (connectionId: string) => typedError<SchemaInfo[], AppError>(__TAURI_INVOKE("list_schemas", { connectionId })),
+	listTables: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema })),
+	listViews: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema })),
+	getColumns: (connectionId: string, schema: string | null, table: string) => typedError<ColumnInfo[], AppError>(__TAURI_INVOKE("get_columns", { connectionId, schema, table })),
+	getIndexes: (connectionId: string, schema: string | null, table: string) => typedError<IndexInfo[], AppError>(__TAURI_INVOKE("get_indexes", { connectionId, schema, table })),
+	getForeignKeys: (connectionId: string, schema: string | null, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, schema, table })),
+	getTriggers: (connectionId: string, schema: string | null, table: string) => typedError<TriggerInfo[], AppError>(__TAURI_INVOKE("get_triggers", { connectionId, schema, table })),
+	getTableDdl: (connectionId: string, schema: string | null, table: string) => typedError<string, AppError>(__TAURI_INVOKE("get_table_ddl", { connectionId, schema, table })),
+	fetchRows: (connectionId: string, schema: string | null, table: string, limit: number, offset: number, orderBy: string | null, orderDesc: boolean, filters: ColumnFilter[]) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, schema, table, limit, offset, orderBy, orderDesc, filters })),
+	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
+	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
+	deleteRows: (connectionId: string, schema: string | null, table: string, pks: { [key in string]: DbValue }[]) => typedError<null, AppError>(__TAURI_INVOKE("delete_rows", { connectionId, schema, table, pks })),
 	/**
 	 *  Returns the SQL that *would* run, without touching the database. The UI shows
 	 *  this in a confirmation dialog; `execute_ddl` is a separate call so nothing
 	 *  destructive can happen without the user seeing the statements first.
 	 */
-	previewAlterTable: (connectionId: string, table: string, diff: TableDiff) => typedError<string[], AppError>(__TAURI_INVOKE("preview_alter_table", { connectionId, table, diff })),
-	previewAddColumn: (connectionId: string, table: string, column: ColumnSpec) => typedError<string[], AppError>(__TAURI_INVOKE("preview_add_column", { connectionId, table, column })),
-	previewDropColumn: (connectionId: string, table: string, column: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_drop_column", { connectionId, table, column })),
+	previewAlterTable: (connectionId: string, schema: string | null, table: string, diff: TableDiff) => typedError<string[], AppError>(__TAURI_INVOKE("preview_alter_table", { connectionId, schema, table, diff })),
+	previewAddColumn: (connectionId: string, schema: string | null, table: string, column: ColumnSpec) => typedError<string[], AppError>(__TAURI_INVOKE("preview_add_column", { connectionId, schema, table, column })),
+	previewDropColumn: (connectionId: string, schema: string | null, table: string, column: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_drop_column", { connectionId, schema, table, column })),
 	executeDdl: (connectionId: string, statements: string[]) => typedError<null, AppError>(__TAURI_INVOKE("execute_ddl", { connectionId, statements })),
 };
 
@@ -158,6 +159,10 @@ export type SavedConnectionRecord = {
 	sslCertPath: string | null,
 	sslCaPath: string | null,
 	filePath: string | null,
+};
+
+export type SchemaInfo = {
+	name: string,
 };
 
 export type SqlDialect = "Postgres" | "MySql" | "Sqlite";

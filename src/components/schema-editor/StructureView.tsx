@@ -9,14 +9,15 @@ import { DataTable, Empty, Panel, PanelState } from "./panels";
 interface StructureViewProps {
   connectionId: string;
   table: string;
+  schema: string | null;
   /** Opened from the toolbar's "+ Column" action as well as the in-panel button. */
   addOpen: boolean;
   onAddOpenChange: (open: boolean) => void;
 }
 
-export function StructureView({ connectionId, table, addOpen, onAddOpenChange }: StructureViewProps) {
-  const { data: columns, isLoading, error } = useColumns(connectionId, table);
-  const { data: foreignKeys } = useForeignKeys(connectionId, table);
+export function StructureView({ connectionId, table, schema, addOpen, onAddOpenChange }: StructureViewProps) {
+  const { data: columns, isLoading, error } = useColumns(connectionId, table, schema ?? undefined);
+  const { data: foreignKeys } = useForeignKeys(connectionId, table, schema ?? undefined);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [menuColumn, setMenuColumn] = useState<string | null>(null);
   const menu = useContextMenu();
@@ -117,12 +118,14 @@ export function StructureView({ connectionId, table, addOpen, onAddOpenChange }:
       <AddColumnDialog
         connectionId={connectionId}
         table={table}
+        schema={schema}
         open={addOpen}
         onOpenChange={onAddOpenChange}
       />
       <DropColumnDialog
         connectionId={connectionId}
         table={table}
+        schema={schema}
         column={dropTarget}
         onClose={() => setDropTarget(null)}
       />

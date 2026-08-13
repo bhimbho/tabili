@@ -7,6 +7,7 @@ import { Select } from "../ui/Select";
 interface AddColumnDialogProps {
   connectionId: string;
   table: string;
+  schema: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -27,7 +28,7 @@ const COMMON_TYPES = [
 const inputClass =
   "w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500";
 
-export function AddColumnDialog({ connectionId, table, open, onOpenChange }: AddColumnDialogProps) {
+export function AddColumnDialog({ connectionId, table, schema, open, onOpenChange }: AddColumnDialogProps) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [dataType, setDataType] = useState("text");
@@ -55,7 +56,7 @@ export function AddColumnDialog({ connectionId, table, open, onOpenChange }: Add
   async function handlePreview() {
     setBusy(true);
     setError(null);
-    const result = await commands.previewAddColumn(connectionId, table, {
+    const result = await commands.previewAddColumn(connectionId, schema, table, {
       name,
       dataType,
       nullable,
@@ -79,8 +80,8 @@ export function AddColumnDialog({ connectionId, table, open, onOpenChange }: Add
       setError(result.error.message);
       return;
     }
-    queryClient.invalidateQueries({ queryKey: ["columns", connectionId, table] });
-    queryClient.invalidateQueries({ queryKey: ["rows", connectionId, table] });
+    queryClient.invalidateQueries({ queryKey: ["columns", connectionId, schema, table] });
+    queryClient.invalidateQueries({ queryKey: ["rows", connectionId, schema, table] });
     handleOpenChange(false);
   }
 

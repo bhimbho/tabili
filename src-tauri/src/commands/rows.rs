@@ -15,12 +15,17 @@ async fn resolve(
         .ok_or_else(|| AppError::from(DbError::Connection("unknown connection".into())))
 }
 
+fn table_ref(schema: Option<String>, table: String) -> TableRef {
+    TableRef { database: None, schema, table }
+}
+
 #[tauri::command]
 #[specta::specta]
 #[allow(clippy::too_many_arguments)]
 pub async fn fetch_rows(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     limit: u32,
     offset: u32,
@@ -31,7 +36,7 @@ pub async fn fetch_rows(
     let driver = resolve(&registry, &connection_id).await?;
     driver
         .fetch_rows(
-            &TableRef { database: None, schema: None, table },
+            &table_ref(schema, table),
             FetchOptions { limit, offset, order_by, order_desc, filters },
         )
         .await
@@ -43,12 +48,13 @@ pub async fn fetch_rows(
 pub async fn insert_row(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     values: HashMap<String, DbValue>,
 ) -> Result<(), AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .insert_row(&TableRef { database: None, schema: None, table }, &values)
+        .insert_row(&table_ref(schema, table), &values)
         .await
         .map_err(AppError::from)
 }
@@ -58,13 +64,14 @@ pub async fn insert_row(
 pub async fn update_row(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     pk: HashMap<String, DbValue>,
     changes: HashMap<String, DbValue>,
 ) -> Result<(), AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .update_row(&TableRef { database: None, schema: None, table }, &pk, &changes)
+        .update_row(&table_ref(schema, table), &pk, &changes)
         .await
         .map_err(AppError::from)
 }
@@ -74,12 +81,13 @@ pub async fn update_row(
 pub async fn delete_rows(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     pks: Vec<HashMap<String, DbValue>>,
 ) -> Result<(), AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .delete_rows(&TableRef { database: None, schema: None, table }, &pks)
+        .delete_rows(&table_ref(schema, table), &pks)
         .await
         .map_err(AppError::from)
 }

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useTableDdl } from "../../hooks/useSchema";
 import { Panel, PanelState } from "./panels";
 
-export function DdlView({ connectionId, table }: { connectionId: string; table: string }) {
-  const { data: ddl, isLoading, error } = useTableDdl(connectionId, table);
+export function DdlView({ connectionId, table, schema }: { connectionId: string; table: string; schema: string | null }) {
+  const { data: ddl, isLoading, error } = useTableDdl(connectionId, table, schema ?? undefined);
   const [copied, setCopied] = useState(false);
 
   if (isLoading || error) {

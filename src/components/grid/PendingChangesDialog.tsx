@@ -48,6 +48,7 @@ function displayText(value: DbValue): string {
 interface EditGroup {
   connectionId: string;
   table: string;
+  schema: string | null;
   pkKey: string;
   pk: Record<string, DbValue>;
   changes: Record<string, DbValue>;
@@ -64,6 +65,7 @@ function groupEdits(edits: PendingEdit[]): EditGroup[] {
       groups.set(groupKey, {
         connectionId: edit.connectionId,
         table: edit.table,
+        schema: edit.schema,
         pkKey: edit.pkKey,
         pk: edit.pk,
         changes: { [edit.column]: edit.newValue },
@@ -112,7 +114,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
     const touched = new Set<string>();
 
     for (const g of editGroups) {
-      const result = await commands.updateRow(g.connectionId, g.table, g.pk, g.changes);
+      const result = await commands.updateRow(g.connectionId, g.schema, g.table, g.pk, g.changes);
       touched.add(`${g.connectionId}:${g.table}`);
       if (result.status === "error") {
         newErrors.push(`UPDATE ${g.table} (${pkKeyOf(g.pk)}): ${result.error.message}`);
@@ -128,7 +130,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
     }
 
     for (const i of insertList) {
-      const result = await commands.insertRow(i.connectionId, i.table, i.values);
+      const result = await commands.insertRow(i.connectionId, i.schema, i.table, i.values);
       touched.add(`${i.connectionId}:${i.table}`);
       if (result.status === "error") {
         newErrors.push(`INSERT INTO ${i.table}: ${result.error.message}`);
@@ -143,8 +145,8 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
       deletesByTable.set(key, [...(deletesByTable.get(key) ?? []), d]);
     }
     for (const [key, group] of deletesByTable) {
-      const [connectionId, table] = key.split(":");
-      const result = await commands.deleteRows(connectionId, table, group.map((d) => d.pk));
+      const { connectionId, table, schema } = group[0];
+      const result = await commands.deleteRows(connectionId, schema, table, group.map((d) => d.pk));
       touched.add(key);
       if (result.status === "error") {
         newErrors.push(`DELETE FROM ${table}: ${result.error.message}`);
@@ -158,8 +160,10 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
     }
 
     for (const key of touched) {
-      const [connectionId, table] = key.split(":");
-      queryClient.invalidateQueries({ queryKey: ["rows", connectionId, table] });
+      const [connectionId] = key.split(":");
+      // Row keys are ["rows", connectionId, schema, table, query]; match on the
+      // connection prefix so every affected schema/query variant refetches.
+      queryClient.invalidateQueries({ queryKey: ["rows", connectionId] });
     }
 
     setErrors(newErrors);

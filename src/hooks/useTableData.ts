@@ -15,13 +15,15 @@ export const EMPTY_QUERY: TableQuery = { filters: [], orderBy: null, orderDesc: 
 export function useTableRows(
   connectionId: string | null,
   table: string | null,
+  schema?: string | null,
   query: TableQuery = EMPTY_QUERY,
 ) {
   return useQuery({
-    queryKey: ["rows", connectionId, table, query],
+    queryKey: ["rows", connectionId, schema ?? null, table, query],
     queryFn: async () => {
       const result = await commands.fetchRows(
         connectionId as string,
+        schema ?? null,
         table as string,
         PAGE_SIZE,
         0,

@@ -22,16 +22,23 @@ function accentFor(id: string): string {
 interface ConnectionsState {
   connections: SavedConnection[];
   activeConnectionId: string | null;
+  /** Selected schema per connection; undefined means the driver default. */
+  activeSchema: Record<string, string>;
   setConnections: (conns: Array<Omit<SavedConnection, "accentColor" | "isConnected">>) => void;
   addConnection: (conn: Omit<SavedConnection, "accentColor" | "isConnected">) => void;
   setConnected: (id: string, connected: boolean) => void;
   removeConnection: (id: string) => void;
   setActiveConnection: (id: string | null) => void;
+  setActiveSchema: (connectionId: string, schema: string) => void;
 }
 
 export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
   connections: [],
   activeConnectionId: null,
+  activeSchema: {},
+
+  setActiveSchema: (connectionId, schema) =>
+    set((state) => ({ activeSchema: { ...state.activeSchema, [connectionId]: schema } })),
 
   setConnections: (conns) =>
     set((state) => ({
