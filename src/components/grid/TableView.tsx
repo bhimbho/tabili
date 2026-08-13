@@ -9,6 +9,7 @@ import { IndexesView } from "../schema-editor/IndexesView";
 import { TriggersView } from "../schema-editor/TriggersView";
 import { DdlView } from "../schema-editor/DdlView";
 import { useColumns, useForeignKeys } from "../../hooks/useSchema";
+import { useDialogsStore } from "../../stores/dialogsStore";
 import { useTableRows, type TableQuery } from "../../hooks/useTableData";
 import { useChangesStore } from "../../stores/changesStore";
 import { useDetailsStore, type FkMap } from "../../stores/detailsStore";
@@ -57,7 +58,12 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
   const [query, setQuery] = useState<TableQuery>({ filters: [], orderBy: null, orderDesc: false });
   const setDetailsContext = useDetailsStore((s) => s.setContext);
   const setRow = useDetailsStore((s) => s.setRow);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  // In a store rather than local state so Edit ▸ Preview can open it as well.
+  const reviewOpen = useDialogsStore((s) => s.dialog === "preview-changes");
+  const openDialog = useDialogsStore((s) => s.open);
+  const closeDialog = useDialogsStore((s) => s.close);
+  const setReviewOpen = (open: boolean) =>
+    open ? openDialog("preview-changes") : closeDialog();
   const [addColumnOpen, setAddColumnOpen] = useState(false);
 
   const { data: columnInfos, error: columnsError } = useColumns(connectionId, table, schema ?? undefined);

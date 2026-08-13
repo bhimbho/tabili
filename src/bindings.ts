@@ -30,6 +30,11 @@ export const commands = {
 	 *  saved record is updated so the choice survives a restart.
 	 */
 	switchDatabase: (connectionId: string, database: string) => typedError<null, AppError>(__TAURI_INVOKE("switch_database", { connectionId, database })),
+	/**
+	 *  Rebuilds the native menu so File ▸ Open Recent matches the saved connections.
+	 *  Called by the frontend after a connection is added or deleted.
+	 */
+	refreshMenu: () => typedError<null, AppError>(__TAURI_INVOKE("refresh_menu")),
 	listSchemas: (connectionId: string) => typedError<SchemaInfo[], AppError>(__TAURI_INVOKE("list_schemas", { connectionId })),
 	listTables: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema })),
 	listViews: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema })),
@@ -58,6 +63,10 @@ export const commands = {
 	listSavedQueries: () => typedError<SavedQuery[], AppError>(__TAURI_INVOKE("list_saved_queries")),
 	saveQuery: (name: string, sql: string) => typedError<SavedQuery, AppError>(__TAURI_INVOKE("save_query", { name, sql })),
 	deleteSavedQuery: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_saved_query", { id })),
+	exportTables: (connectionId: string, tables: ExportTableSpec[], format: ExportFormat, csvOptions: CsvOptions, destination: string) => typedError<ExportResult, AppError>(__TAURI_INVOKE("export_tables", { connectionId, tables, format, csvOptions, destination })),
+	previewCsv: (path: string, options: CsvImportOptions) => typedError<CsvPreview, AppError>(__TAURI_INVOKE("preview_csv", { path, options })),
+	importCsv: (connectionId: string, schema: string | null, table: string, path: string, options: CsvImportOptions) => typedError<ImportResult, AppError>(__TAURI_INVOKE("import_csv", { connectionId, schema, table, path, options })),
+	importSqlDump: (connectionId: string, path: string) => typedError<ImportResult, AppError>(__TAURI_INVOKE("import_sql_dump", { connectionId, path })),
 };
 
 /* Types */
@@ -97,6 +106,46 @@ export type ColumnSpec = {
 	defaultValue: string | null,
 };
 
+export type CsvImportOptions = {
+	/**
+	 *  Treat the first row as column names. When false, values are matched to
+	 *  the table's columns positionally.
+	 */
+	firstRowIsHeader: boolean,
+	delimiter: string,
+	/**
+	 *  Empty fields become NULL rather than an empty string. Usually what you
+	 *  want, since an empty string will not cast into a numeric or date column.
+	 */
+	emptyAsNull: boolean,
+};
+
+export type CsvOptions = {
+	/**  NULL becomes an empty field rather than the literal text `NULL`. */
+	nullToEmpty: boolean,
+	lineBreakToSpace: boolean,
+	fieldNamesFirstRow: boolean,
+	delimiter: string,
+	quoting: CsvQuoting,
+	lineBreak: string,
+	/**  `.` or `,` — the separator used when writing floats and decimals. */
+	decimal: string,
+};
+
+/**
+ *  Reads the header row (or the first data row's width) without consuming the
+ *  file, so the UI can show a column mapping before committing to an import.
+ */
+export type CsvPreview = {
+	columns: string[],
+	sampleRows: string[][],
+};
+
+/**  How to quote CSV fields. Mirrors the "Swap" control in the export dialog. */
+export type CsvQuoting = 
+/**  Quote only when the value contains a delimiter, quote or line break. */
+"IfNeeded" | "Always" | "Never";
+
 export type DatabaseInfo = {
 	name: string,
 };
@@ -122,6 +171,20 @@ export type DbValue = { type: "Null" } | { type: "Bool"; value: boolean } |
 	typeName: string,
 } };
 
+export type ExportFormat = "Csv" | "Json" | "Sql";
+
+export type ExportResult = {
+	files: string[],
+	rowsWritten: number,
+};
+
+export type ExportTableSpec = {
+	schema: string | null,
+	table: string,
+	/**  `None` exports every column, in the table's own order. */
+	columns: string[] | null,
+};
+
 export type FilterOperator = "Equals" | "NotEquals" | "Contains" | "StartsWith" | "EndsWith" | "GreaterThan" | "LessThan" | "GreaterOrEqual" | "LessOrEqual" | "IsNull" | "IsNotNull";
 
 export type ForeignKeyInfo = {
@@ -138,6 +201,16 @@ export type FunctionInfo = {
 	returns: string,
 	/**  "function" or "procedure". */
 	kind: string,
+};
+
+export type ImportResult = {
+	rowsImported: number,
+	statementsRun: number,
+	/**
+	 *  Column names in the file that don't exist on the table; their values are
+	 *  skipped rather than failing the whole import.
+	 */
+	skippedColumns: string[],
 };
 
 export type IndexInfo = {

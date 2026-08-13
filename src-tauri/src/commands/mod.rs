@@ -3,6 +3,7 @@ pub mod console;
 pub mod ddl;
 pub mod rows;
 pub mod schema;
+pub mod transfer;
 
 use serde::Serialize;
 use specta::Type;

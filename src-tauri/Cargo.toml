@@ -40,4 +40,5 @@ chrono = "0.4.45"
 rust_decimal = "1.42.1"
 window-vibrancy = "0.8.0"
 russh = "0.62.6"
+csv = "1.4.0"
 
