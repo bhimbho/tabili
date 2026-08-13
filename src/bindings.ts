@@ -44,6 +44,15 @@ export const commands = {
 	getForeignKeys: (connectionId: string, schema: string | null, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, schema, table })),
 	getTriggers: (connectionId: string, schema: string | null, table: string) => typedError<TriggerInfo[], AppError>(__TAURI_INVOKE("get_triggers", { connectionId, schema, table })),
 	getTableDdl: (connectionId: string, schema: string | null, table: string) => typedError<string, AppError>(__TAURI_INVOKE("get_table_ddl", { connectionId, schema, table })),
+	/**
+	 *  Catalog estimate rather than `COUNT(*)`, which is why it can be `None` and
+	 *  why it's cheap enough to fetch whenever the details pane opens.
+	 * 
+	 *  Returned as `f64` so the absent case survives into TypeScript as `null` —
+	 *  specta refuses to export a bare `i64`, and annotating it as a number erases
+	 *  the `Option`. An f64 is exact well past any row count a table will reach.
+	 */
+	estimatedRowCount: (connectionId: string, schema: string | null, table: string) => typedError<number | null, AppError>(__TAURI_INVOKE("estimated_row_count", { connectionId, schema, table })),
 	fetchRows: (connectionId: string, schema: string | null, table: string, limit: number, offset: number, orderBy: string | null, orderDesc: boolean, filters: ColumnFilter[]) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, schema, table, limit, offset, orderBy, orderDesc, filters })),
 	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
 	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
@@ -97,6 +106,12 @@ export type ColumnInfo = {
 	nullable: boolean,
 	isPrimaryKey: boolean,
 	defaultValue: string | null,
+	/**
+	 *  Allowed labels when the column's type is an enumeration, in declaration
+	 *  order. Empty for every other type, which is how the UI decides whether to
+	 *  offer a picker instead of a free-text field.
+	 */
+	enumValues: string[],
 };
 
 export type ColumnSpec = {
@@ -155,7 +170,13 @@ export type DatabaseInfo = {
  *  into this without panicking — unrecognized/exotic column types fall back to
  *  `Unsupported` rather than crashing the row fetch.
  */
-export type DbValue = { type: "Null" } | { type: "Bool"; value: boolean } | 
+export type DbValue = { type: "Null" } | 
+/**
+ *  "Use the column's declared default". Write-only — decoding never produces
+ *  it — and inlined as the SQL keyword `DEFAULT` rather than bound, the same
+ *  way `Null` is. SQLite has no `SET col = DEFAULT`, so its driver rejects it.
+ */
+{ type: "Default" } | { type: "Bool"; value: boolean } | 
 /**
  *  Exported as TS `number`: JSON-wire-compatible with i64, precision loss above
  *  2^53 is an accepted display-only limitation (matches how most DB GUIs handle it).

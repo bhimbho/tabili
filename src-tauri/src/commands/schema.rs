@@ -136,6 +136,28 @@ pub async fn get_triggers(
         .map_err(AppError::from)
 }
 
+/// Catalog estimate rather than `COUNT(*)`, which is why it can be `None` and
+/// why it's cheap enough to fetch whenever the details pane opens.
+///
+/// Returned as `f64` so the absent case survives into TypeScript as `null` —
+/// specta refuses to export a bare `i64`, and annotating it as a number erases
+/// the `Option`. An f64 is exact well past any row count a table will reach.
+#[tauri::command]
+#[specta::specta]
+pub async fn estimated_row_count(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+) -> Result<Option<f64>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .estimated_row_count(&table_ref(schema, table))
+        .await
+        .map(|count| count.map(|n| n as f64))
+        .map_err(AppError::from)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_table_ddl(

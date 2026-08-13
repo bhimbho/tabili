@@ -85,6 +85,17 @@ export function useTriggers(connectionId: string | null, table: string | null, s
   });
 }
 
+export function useRowCount(connectionId: string | null, table: string | null, schema?: Schema) {
+  return useQuery({
+    queryKey: ["row-count", connectionId, schema ?? null, table],
+    queryFn: async () =>
+      unwrap(
+        await commands.estimatedRowCount(connectionId as string, schema ?? null, table as string),
+      ),
+    enabled: !!connectionId && !!table,
+  });
+}
+
 export function useTableDdl(connectionId: string | null, table: string | null, schema?: Schema) {
   return useQuery({
     queryKey: ["table-ddl", connectionId, schema ?? null, table],

@@ -51,6 +51,9 @@ pub async fn get_columns(pool: &SqlitePool, table: &str) -> Result<Vec<ColumnInf
             nullable: row.get::<i64, _>("notnull") == 0,
             is_primary_key: row.get::<i64, _>("pk") > 0,
             default_value: row.try_get::<String, _>("dflt_value").ok(),
+            // SQLite has no enumerated types; CHECK-constraint "enums" aren't
+            // introspectable as a label list.
+            enum_values: Vec::new(),
         })
         .collect())
 }

@@ -16,6 +16,10 @@ pub enum SqlDialect {
 #[serde(tag = "type", content = "value")]
 pub enum DbValue {
     Null,
+    /// "Use the column's declared default". Write-only — decoding never produces
+    /// it — and inlined as the SQL keyword `DEFAULT` rather than bound, the same
+    /// way `Null` is. SQLite has no `SET col = DEFAULT`, so its driver rejects it.
+    Default,
     Bool(bool),
     /// Exported as TS `number`: JSON-wire-compatible with i64, precision loss above
     /// 2^53 is an accepted display-only limitation (matches how most DB GUIs handle it).
@@ -33,6 +37,19 @@ pub enum DbValue {
     Array(Vec<DbValue>),
     #[serde(rename_all = "camelCase")]
     Unsupported { raw: String, type_name: String },
+}
+
+impl DbValue {
+    /// Values that go into a statement as a bare SQL keyword instead of a bound
+    /// parameter. Keeping this in one place stops the three drivers drifting on
+    /// which variants are inlined.
+    pub fn inline_keyword(&self) -> Option<&'static str> {
+        match self {
+            DbValue::Null => Some("NULL"),
+            DbValue::Default => Some("DEFAULT"),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -75,6 +92,10 @@ pub struct ColumnInfo {
     pub nullable: bool,
     pub is_primary_key: bool,
     pub default_value: Option<String>,
+    /// Allowed labels when the column's type is an enumeration, in declaration
+    /// order. Empty for every other type, which is how the UI decides whether to
+    /// offer a picker instead of a free-text field.
+    pub enum_values: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

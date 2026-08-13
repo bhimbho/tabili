@@ -101,12 +101,17 @@ pub async fn get_columns(pool: &PgPool, schema: &str, table: &str) -> Result<Vec
                 format_type(a.atttypid, a.atttypmod) AS data_type, \
                 NOT a.attnotnull AS nullable, \
                 pg_get_expr(d.adbin, d.adrelid) AS column_default, \
-                COALESCE(i.indisprimary, false) AS is_primary_key \
+                COALESCE(i.indisprimary, false) AS is_primary_key, \
+                COALESCE(e.labels, ARRAY[]::text[]) AS enum_values \
          FROM pg_attribute a \
          JOIN pg_class c ON c.oid = a.attrelid \
          JOIN pg_namespace n ON n.oid = c.relnamespace \
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum \
          LEFT JOIN pg_index i ON i.indrelid = c.oid AND i.indisprimary AND a.attnum = ANY(i.indkey) \
+         LEFT JOIN LATERAL ( \
+           SELECT array_agg(en.enumlabel::text ORDER BY en.enumsortorder) AS labels \
+           FROM pg_enum en WHERE en.enumtypid = a.atttypid \
+         ) e ON true \
          WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped \
          ORDER BY a.attnum",
     )
@@ -124,6 +129,7 @@ pub async fn get_columns(pool: &PgPool, schema: &str, table: &str) -> Result<Vec
             nullable: row.get::<bool, _>("nullable"),
             is_primary_key: row.get::<bool, _>("is_primary_key"),
             default_value: row.try_get::<String, _>("column_default").ok(),
+            enum_values: row.try_get::<Vec<String>, _>("enum_values").unwrap_or_default(),
         })
         .collect())
 }
