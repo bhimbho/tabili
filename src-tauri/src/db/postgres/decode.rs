@@ -43,11 +43,16 @@ pub fn decode_value(row: &PgRow, idx: usize) -> DbValue {
         "DATE" => get_or_null::<NaiveDate, _>(row, idx, |v| DbValue::DateTime(v.to_string())),
         "TIME" => get_or_null::<NaiveTime, _>(row, idx, |v| DbValue::DateTime(v.to_string())),
         "UUID" => get_or_null::<Uuid, _>(row, idx, |v| DbValue::Uuid(v.to_string())),
-        other => DbValue::Unsupported {
-            raw: row
-                .try_get::<String, _>(idx)
-                .unwrap_or_else(|_| "<undecodable>".to_string()),
-            type_name: other.to_string(),
+        // User-defined types (enums, domains) have their own OIDs, so sqlx refuses
+        // to decode them as String even though the wire value is just the label.
+        // Reading the raw bytes recovers it; anything not valid UTF-8 (PostGIS
+        // geometry and friends) still degrades to Unsupported.
+        other => match raw.as_bytes().ok().and_then(|b| std::str::from_utf8(b).ok()) {
+            Some(text) => DbValue::Text(text.to_string()),
+            None => DbValue::Unsupported {
+                raw: "<binary>".to_string(),
+                type_name: other.to_string(),
+            },
         },
     }
 }

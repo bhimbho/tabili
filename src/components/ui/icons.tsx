@@ -50,6 +50,27 @@ export function KeyIcon({ className = "h-3 w-3", style }: IconProps) {
   );
 }
 
+export function ReloadIcon({ className = "h-3.5 w-3.5", style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.023 9.348h4.992V4.356M20.015 9.348a8.25 8.25 0 10-1.98 8.457"
+      />
+    </svg>
+  );
+}
+
+export function PanelIcon({ className = "h-3.5 w-3.5", style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2" />
+      <path d="M9 4.5v15" />
+    </svg>
+  );
+}
+
 export function PlusIcon({ className = "h-3.5 w-3.5", style }: IconProps) {
   return (
     <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
