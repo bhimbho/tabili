@@ -31,6 +31,18 @@ export const commands = {
 	 */
 	switchDatabase: (connectionId: string, database: string) => typedError<null, AppError>(__TAURI_INVOKE("switch_database", { connectionId, database })),
 	/**
+	 *  Saves edits to an existing connection.
+	 * 
+	 *  Secrets are only touched when the form actually supplies one: an empty
+	 *  password field means "leave the keychain entry alone", so editing the port
+	 *  doesn't force the user to retype credentials they can't see.
+	 * 
+	 *  A live connection is reopened with the new settings, since a pool already
+	 *  bound to the old host would otherwise keep serving the previous target. The
+	 *  old pool is only torn down once the replacement is known good.
+	 */
+	updateConnection: (id: string, request: NewConnectionRequest) => typedError<OpenedConnection, AppError>(__TAURI_INVOKE("update_connection", { id, request })),
+	/**
 	 *  Rebuilds the native menu so File ▸ Open Recent matches the saved connections.
 	 *  Called by the frontend after a connection is added or deleted.
 	 */
@@ -176,7 +188,13 @@ export type DbValue = { type: "Null" } |
  *  it — and inlined as the SQL keyword `DEFAULT` rather than bound, the same
  *  way `Null` is. SQLite has no `SET col = DEFAULT`, so its driver rejects it.
  */
-{ type: "Default" } | { type: "Bool"; value: boolean } | 
+{ type: "Default" } | 
+/**
+ *  "Whatever the server's clock says at write time". Also write-only, and
+ *  inlined as `CURRENT_TIMESTAMP` — the spelling every dialect here accepts,
+ *  unlike `NOW()`, which SQLite lacks.
+ */
+{ type: "Now" } | { type: "Bool"; value: boolean } | 
 /**
  *  Exported as TS `number`: JSON-wire-compatible with i64, precision loss above
  *  2^53 is an accepted display-only limitation (matches how most DB GUIs handle it).

@@ -27,6 +27,7 @@ pub fn run() {
         commands::connections::delete_saved_connection,
         commands::connections::list_databases,
         commands::connections::switch_database,
+        commands::connections::update_connection,
         commands::connections::refresh_menu,
         commands::schema::list_schemas,
         commands::schema::list_tables,

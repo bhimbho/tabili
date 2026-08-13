@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { commands } from "../../bindings";
+import { commands, type SavedConnectionRecord } from "../../bindings";
 import { useConnectionsStore, CONNECTION_COLORS, type Dialect } from "../../stores/connectionsStore";
 import { DialectBadge } from "./DialectBadge";
 import { Select } from "../ui/Select";
@@ -32,6 +32,8 @@ const DIALECTS: DialectMeta[] = [
 interface NewConnectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Present to edit an existing connection instead of creating one. */
+  editing?: SavedConnectionRecord | null;
 }
 
 type Step = "pick" | "configure";
@@ -65,9 +67,10 @@ function CertButton({ label, set, onPick }: { label: string; set: string; onPick
   );
 }
 
-export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogProps) {
+export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnectionDialogProps) {
   const addConnection = useConnectionsStore((s) => s.addConnection);
   const queryClient = useQueryClient();
+  const isEditing = !!editing;
   const [step, setStep] = useState<Step>("pick");
   const [dialect, setDialect] = useState<Dialect | null>(null);
   const [name, setName] = useState("");
@@ -120,6 +123,36 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
     setError(null);
   }
 
+  // Load the saved values when editing. Secrets are deliberately left blank —
+  // they live in the Keychain and are never read back into the form; leaving a
+  // field empty on save keeps whatever is already stored.
+  useEffect(() => {
+    if (!open || !editing) return;
+    setStep("configure");
+    setDialect(editing.dialect);
+    setName(editing.name);
+    setHost(editing.host ?? "127.0.0.1");
+    setPort(editing.port != null ? String(editing.port) : "");
+    setUsername(editing.username ?? "");
+    setPassword("");
+    setDatabase(editing.database ?? "");
+    setColor(editing.color ?? CONNECTION_COLORS[0].value);
+    setSslMode(editing.sslMode ?? "prefer");
+    setSslKeyPath(editing.sslKeyPath ?? "");
+    setSslCertPath(editing.sslCertPath ?? "");
+    setSslCaPath(editing.sslCaPath ?? "");
+    setFilePath(editing.filePath ?? "");
+    setSshEnabled(editing.sshEnabled);
+    setSshHost(editing.sshHost ?? "");
+    setSshPort(editing.sshPort != null ? String(editing.sshPort) : "22");
+    setSshUsername(editing.sshUsername ?? "");
+    setSshPassword("");
+    setSshUseKey(editing.sshUseKey);
+    setSshPrivateKeyPath(editing.sshPrivateKeyPath ?? "");
+    setSshPrivateKeyPassphrase("");
+    setError(null);
+  }, [open, editing]);
+
   function handleOpenChange(next: boolean) {
     if (!next) reset();
     onOpenChange(next);
@@ -158,7 +191,7 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
     setError(null);
 
     const isSqlite = dialect === "Sqlite";
-    const result = await commands.openConnection({
+    const request = {
       dialect,
       name: name || (isSqlite ? (filePath.split("/").pop() ?? "New connection") : `${username}@${host}`),
       color,
@@ -181,19 +214,28 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
       sshPrivateKeyPath: !isSqlite && sshEnabled && sshUseKey ? sshPrivateKeyPath || null : null,
       sshPrivateKeyPassphrase:
         !isSqlite && sshEnabled && sshUseKey ? sshPrivateKeyPassphrase || null : null,
-    });
+    };
+
+    const result = editing
+      ? await commands.updateConnection(editing.id, request)
+      : await commands.openConnection(request);
 
     setConnecting(false);
     if (result.status === "error") {
       setError(friendlyError(result.error.message));
       return;
     }
-    addConnection({
-      id: result.data.connectionId,
-      name: result.data.displayName,
-      dialect: result.data.dialect,
-      color: result.data.color,
-    });
+
+    // Only a new connection is necessarily live; refetching the saved list
+    // picks up an edit's new name/colour while preserving connected state.
+    if (!editing) {
+      addConnection({
+        id: result.data.connectionId,
+        name: result.data.displayName,
+        dialect: result.data.dialect,
+        color: result.data.color,
+      });
+    }
     queryClient.invalidateQueries({ queryKey: ["saved-connections"] });
     handleOpenChange(false);
   }
@@ -235,7 +277,7 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
               <div className="flex items-center gap-2">
                 <DialectBadge dialect={dialect} />
                 <Dialog.Title className="text-base font-semibold text-neutral-100">
-                  {activeDialect?.label}
+                  {isEditing ? `Edit ${name || activeDialect?.label}` : activeDialect?.label}
                 </Dialog.Title>
               </div>
 
@@ -311,7 +353,8 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
                           type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className={inputClass}
+                          placeholder={isEditing ? "Unchanged" : undefined}
+                          className={`${inputClass} placeholder:italic placeholder:text-neutral-600`}
                         />
                       </Field>
                     </div>
@@ -449,17 +492,23 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
 
               <div className="mt-5 flex items-center justify-between">
                 <button
-                  onClick={() => setStep("pick")}
+                  onClick={() => (isEditing ? handleOpenChange(false) : setStep("pick"))}
                   className="rounded-lg px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
                 >
-                  Back
+                  {isEditing ? "Cancel" : "Back"}
                 </button>
                 <button
                   onClick={handleConnect}
                   disabled={!canConnect || connecting}
                   className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {connecting ? "Connecting…" : "Connect"}
+                  {connecting
+                    ? isEditing
+                      ? "Saving…"
+                      : "Connecting…"
+                    : isEditing
+                      ? "Save"
+                      : "Connect"}
                 </button>
               </div>
             </>

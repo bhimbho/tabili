@@ -4,6 +4,7 @@ import { KeyIcon } from "../ui/icons";
 import type { FkMap } from "../../stores/detailsStore";
 import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
 import { EnumField } from "./EnumField";
+import { DateTimeField, dateTimeKind } from "./DateTimeField";
 import { TableDetailsPanel } from "./TableDetailsPanel";
 
 interface RowDetailsPanelProps {
@@ -25,6 +26,8 @@ function display(value: DbValue | undefined): string {
       return "";
     case "Default":
       return "DEFAULT";
+    case "Now":
+      return "CURRENT_TIMESTAMP";
     case "Bool":
       return value.value ? "true" : "false";
     case "Int":
@@ -203,7 +206,17 @@ export function RowDetailsPanel({
                     </span>
                   </div>
 
-                  {info && info.enumValues.length > 0 ? (
+                  {info && dateTimeKind(info.dataType) ? (
+                    <DateTimeField
+                      value={value}
+                      kind={dateTimeKind(info.dataType)!}
+                      nullable={info.nullable}
+                      hasDefault={info.defaultValue != null}
+                      dirty={dirty}
+                      disabled={!canEdit}
+                      onChange={(next) => commitValue(name, next)}
+                    />
+                  ) : info && info.enumValues.length > 0 ? (
                     <EnumField
                       value={value}
                       options={info.enumValues}

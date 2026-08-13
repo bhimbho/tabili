@@ -83,6 +83,9 @@ async function dispatch(action: string, queryClient: QueryClient) {
     case "connection.open":
       dialogs.open("new-connection");
       return;
+    case "connection.edit":
+      if (activeId) dialogs.openEdit(activeId);
+      return;
     case "file.export":
       dialogs.open("export-all");
       return;

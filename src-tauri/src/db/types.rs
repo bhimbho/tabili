@@ -20,6 +20,10 @@ pub enum DbValue {
     /// it — and inlined as the SQL keyword `DEFAULT` rather than bound, the same
     /// way `Null` is. SQLite has no `SET col = DEFAULT`, so its driver rejects it.
     Default,
+    /// "Whatever the server's clock says at write time". Also write-only, and
+    /// inlined as `CURRENT_TIMESTAMP` — the spelling every dialect here accepts,
+    /// unlike `NOW()`, which SQLite lacks.
+    Now,
     Bool(bool),
     /// Exported as TS `number`: JSON-wire-compatible with i64, precision loss above
     /// 2^53 is an accepted display-only limitation (matches how most DB GUIs handle it).
@@ -47,6 +51,7 @@ impl DbValue {
         match self {
             DbValue::Null => Some("NULL"),
             DbValue::Default => Some("DEFAULT"),
+            DbValue::Now => Some("CURRENT_TIMESTAMP"),
             _ => None,
         }
     }
