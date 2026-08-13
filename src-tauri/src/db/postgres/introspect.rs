@@ -1,7 +1,7 @@
 use sqlx::{PgPool, Row};
 
 use crate::db::error::DbError;
-use crate::db::types::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo};
+use crate::db::types::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TriggerInfo};
 
 /// Double-embedded quotes to safely inline an identifier where sqlx can't bind
 /// one (schema/table names in FROM clauses don't accept bind params).
@@ -154,6 +154,98 @@ pub async fn get_foreign_keys(pool: &PgPool, schema: &str, table: &str) -> Resul
             referenced_columns: vec![row.get::<String, _>("referenced_column")],
         })
         .collect())
+}
+
+pub async fn get_triggers(pool: &PgPool, schema: &str, table: &str) -> Result<Vec<TriggerInfo>, DbError> {
+    let rows = sqlx::query(
+        "SELECT t.tgname AS name, \
+                pg_get_triggerdef(t.oid) AS statement, \
+                CASE WHEN (t.tgtype & 2) <> 0 THEN 'BEFORE' ELSE 'AFTER' END AS timing, \
+                CASE WHEN (t.tgtype & 4) <> 0 THEN 'INSERT' \
+                     WHEN (t.tgtype & 8) <> 0 THEN 'DELETE' \
+                     WHEN (t.tgtype & 16) <> 0 THEN 'UPDATE' \
+                     ELSE 'TRUNCATE' END AS event \
+         FROM pg_trigger t \
+         JOIN pg_class c ON c.oid = t.tgrelid \
+         JOIN pg_namespace n ON n.oid = c.relnamespace \
+         WHERE n.nspname = $1 AND c.relname = $2 AND NOT t.tgisinternal \
+         ORDER BY t.tgname",
+    )
+    .bind(schema)
+    .bind(table)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| DbError::Query(e.to_string()))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| TriggerInfo {
+            name: row.get::<String, _>("name"),
+            timing: row.get::<String, _>("timing"),
+            event: row.get::<String, _>("event"),
+            statement: row.try_get::<String, _>("statement").unwrap_or_default(),
+        })
+        .collect())
+}
+
+/// Postgres has no SHOW CREATE TABLE, so the statement is reconstructed from the
+/// catalog. It's a faithful summary rather than a byte-exact dump.
+pub async fn get_table_ddl(pool: &PgPool, schema: &str, table: &str) -> Result<String, DbError> {
+    let columns = get_columns(pool, schema, table).await?;
+    if columns.is_empty() {
+        return Err(DbError::Query(format!("table {schema}.{table} not found")));
+    }
+
+    let mut lines: Vec<String> = columns
+        .iter()
+        .map(|c| {
+            let mut line = format!("  {} {}", quote_ident(&c.name), c.data_type);
+            if !c.nullable {
+                line.push_str(" NOT NULL");
+            }
+            if let Some(default) = &c.default_value {
+                line.push_str(&format!(" DEFAULT {default}"));
+            }
+            line
+        })
+        .collect();
+
+    let pk: Vec<String> = columns
+        .iter()
+        .filter(|c| c.is_primary_key)
+        .map(|c| quote_ident(&c.name))
+        .collect();
+    if !pk.is_empty() {
+        lines.push(format!("  PRIMARY KEY ({})", pk.join(", ")));
+    }
+    for fk in get_foreign_keys(pool, schema, table).await? {
+        lines.push(format!(
+            "  CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({})",
+            quote_ident(&fk.name),
+            fk.columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", "),
+            quote_ident(&fk.referenced_table),
+            fk.referenced_columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", "),
+        ));
+    }
+
+    let mut ddl = format!(
+        "CREATE TABLE {} (\n{}\n);",
+        quote_qualified(schema, table),
+        lines.join(",\n")
+    );
+    for idx in get_indexes(pool, schema, table).await? {
+        if pk.len() == idx.columns.len() && idx.name.ends_with("_pkey") {
+            continue;
+        }
+        ddl.push_str(&format!(
+            "\n\nCREATE {}INDEX {} ON {} ({});",
+            if idx.is_unique { "UNIQUE " } else { "" },
+            quote_ident(&idx.name),
+            quote_qualified(schema, table),
+            idx.columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", "),
+        ));
+    }
+    Ok(ddl)
 }
 
 pub async fn estimated_row_count(pool: &PgPool, schema: &str, table: &str) -> Result<Option<i64>, DbError> {

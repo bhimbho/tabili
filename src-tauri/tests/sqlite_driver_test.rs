@@ -47,7 +47,7 @@ async fn connects_lists_tables_and_fetches_rows() {
     let page = driver
         .fetch_rows(
             &TableRef { database: None, schema: None, table: "users".to_string() },
-            FetchOptions { limit: 2, offset: 0, order_by: Some("id".to_string()) },
+            FetchOptions { limit: 2, offset: 0, order_by: Some("id".to_string()), order_desc: false, filters: vec![] },
         )
         .await
         .expect("fetch_rows");
@@ -58,7 +58,7 @@ async fn connects_lists_tables_and_fetches_rows() {
     let second_page = driver
         .fetch_rows(
             &TableRef { database: None, schema: None, table: "users".to_string() },
-            FetchOptions { limit: 2, offset: 2, order_by: Some("id".to_string()) },
+            FetchOptions { limit: 2, offset: 2, order_by: Some("id".to_string()), order_desc: false, filters: vec![] },
         )
         .await
         .expect("fetch_rows page 2");
@@ -71,6 +71,115 @@ async fn connects_lists_tables_and_fetches_rows() {
         .expect("get_foreign_keys");
     assert_eq!(fks.len(), 1);
     assert_eq!(fks[0].referenced_table, "users");
+
+    driver.close().await.expect("close");
+}
+
+#[tokio::test]
+async fn filters_and_sorts_rows() {
+    use tabili_lib::db::{ColumnFilter, FilterOperator};
+
+    let path = std::env::var("TABILI_TEST_SQLITE_PATH")
+        .expect("set TABILI_TEST_SQLITE_PATH to a fixture .sqlite file");
+    let driver = connect_driver(DbKind::Sqlite, &config_for(&path))
+        .await
+        .expect("connect");
+    let users = TableRef { database: None, schema: None, table: "users".to_string() };
+
+    let contains = |col: &str, needle: &str| ColumnFilter {
+        column: col.to_string(),
+        operator: FilterOperator::Contains,
+        value: Some(DbValue::Text(needle.to_string())),
+    };
+
+    // Text pattern filter.
+    let page = driver
+        .fetch_rows(
+            &users,
+            FetchOptions {
+                limit: 50,
+                offset: 0,
+                order_by: None,
+                order_desc: false,
+                filters: vec![contains("name", "li")],
+            },
+        )
+        .await
+        .expect("contains filter");
+    assert_eq!(page.rows.len(), 1, "only Alice contains 'li'");
+
+    // Typed equality binds as an integer, not a string.
+    let page = driver
+        .fetch_rows(
+            &users,
+            FetchOptions {
+                limit: 50,
+                offset: 0,
+                order_by: None,
+                order_desc: false,
+                filters: vec![ColumnFilter {
+                    column: "id".to_string(),
+                    operator: FilterOperator::Equals,
+                    value: Some(DbValue::Int(2)),
+                }],
+            },
+        )
+        .await
+        .expect("equals filter");
+    assert_eq!(page.rows.len(), 1);
+    assert_eq!(page.rows[0]["id"], DbValue::Int(2));
+
+    // IS NULL takes no operand.
+    let page = driver
+        .fetch_rows(
+            &users,
+            FetchOptions {
+                limit: 50,
+                offset: 0,
+                order_by: None,
+                order_desc: false,
+                filters: vec![ColumnFilter {
+                    column: "email".to_string(),
+                    operator: FilterOperator::IsNull,
+                    value: None,
+                }],
+            },
+        )
+        .await
+        .expect("is null filter");
+    assert_eq!(page.rows.len(), 1, "Carol has a null email");
+
+    // Descending sort.
+    let page = driver
+        .fetch_rows(
+            &users,
+            FetchOptions {
+                limit: 50,
+                offset: 0,
+                order_by: Some("id".to_string()),
+                order_desc: true,
+                filters: vec![],
+            },
+        )
+        .await
+        .expect("desc sort");
+    assert_eq!(page.rows[0]["id"], DbValue::Int(3));
+
+    // Filters must be parameterised — a quote-heavy needle must not break the query.
+    let page = driver
+        .fetch_rows(
+            &users,
+            FetchOptions {
+                limit: 50,
+                offset: 0,
+                order_by: None,
+                order_desc: false,
+                filters: vec![contains("name", "' OR 1=1 --")],
+            },
+        )
+        .await
+        .expect("injection-shaped needle is treated as a literal");
+    assert_eq!(page.rows.len(), 0);
 
     driver.close().await.expect("close");
 }
@@ -95,7 +204,7 @@ async fn inserts_updates_and_deletes_rows() {
     driver.insert_row(&users, &values).await.expect("insert_row");
 
     let page = driver
-        .fetch_rows(&users, FetchOptions { limit: 10, offset: 0, order_by: Some("id".to_string()) })
+        .fetch_rows(&users, FetchOptions { limit: 10, offset: 0, order_by: Some("id".to_string()), order_desc: false, filters: vec![] })
         .await
         .expect("fetch_rows after insert");
     assert_eq!(page.rows.len(), 4, "expected 3 original + 1 inserted row");
@@ -114,7 +223,7 @@ async fn inserts_updates_and_deletes_rows() {
     driver.update_row(&users, &pk, &changes).await.expect("update_row");
 
     let page = driver
-        .fetch_rows(&users, FetchOptions { limit: 10, offset: 0, order_by: Some("id".to_string()) })
+        .fetch_rows(&users, FetchOptions { limit: 10, offset: 0, order_by: Some("id".to_string()), order_desc: false, filters: vec![] })
         .await
         .expect("fetch_rows after update");
     let dana = page.rows.iter().find(|r| r["id"] == DbValue::Int(dana_id)).unwrap();
@@ -123,7 +232,7 @@ async fn inserts_updates_and_deletes_rows() {
 
     driver.delete_rows(&users, &[pk]).await.expect("delete_rows");
     let page = driver
-        .fetch_rows(&users, FetchOptions { limit: 10, offset: 0, order_by: Some("id".to_string()) })
+        .fetch_rows(&users, FetchOptions { limit: 10, offset: 0, order_by: Some("id".to_string()), order_desc: false, filters: vec![] })
         .await
         .expect("fetch_rows after delete");
     assert_eq!(page.rows.len(), 3, "back to the original 3 rows after delete");

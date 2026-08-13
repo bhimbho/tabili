@@ -25,6 +25,8 @@ pub fn run() {
         commands::schema::get_columns,
         commands::schema::get_indexes,
         commands::schema::get_foreign_keys,
+        commands::schema::get_triggers,
+        commands::schema::get_table_ddl,
         commands::rows::fetch_rows,
         commands::rows::insert_row,
         commands::rows::update_row,

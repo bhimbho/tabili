@@ -3,7 +3,7 @@ use tauri::State;
 
 use crate::connection_registry::ConnectionRegistry;
 use crate::db::error::AppError;
-use crate::db::{DbError, DbValue, FetchOptions, RowPage, TableRef};
+use crate::db::{ColumnFilter, DbError, DbValue, FetchOptions, RowPage, TableRef};
 
 async fn resolve(
     registry: &State<'_, ConnectionRegistry>,
@@ -17,18 +17,22 @@ async fn resolve(
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn fetch_rows(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
     table: String,
     limit: u32,
     offset: u32,
+    order_by: Option<String>,
+    order_desc: bool,
+    filters: Vec<ColumnFilter>,
 ) -> Result<RowPage, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
         .fetch_rows(
             &TableRef { database: None, schema: None, table },
-            FetchOptions { limit, offset, order_by: None },
+            FetchOptions { limit, offset, order_by, order_desc, filters },
         )
         .await
         .map_err(AppError::from)

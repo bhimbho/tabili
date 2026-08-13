@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { DataGrid } from "./DataGrid";
 import { GridToolbar } from "./GridToolbar";
 import { PendingChangesDialog } from "./PendingChangesDialog";
+import { FilterBar, toColumnFilters, type DraftFilter } from "./FilterBar";
 import { StructureView } from "../schema-editor/StructureView";
+import { IndexesView } from "../schema-editor/IndexesView";
+import { TriggersView } from "../schema-editor/TriggersView";
+import { DdlView } from "../schema-editor/DdlView";
 import { useColumns } from "../../hooks/useSchema";
-import { useTableRows } from "../../hooks/useTableData";
+import { useTableRows, type TableQuery } from "../../hooks/useTableData";
 import { useChangesStore } from "../../stores/changesStore";
 
 interface TableViewProps {
@@ -13,21 +17,22 @@ interface TableViewProps {
   table: string;
 }
 
-type Mode = "data" | "structure";
+const TABS = ["data", "structure", "indexes", "triggers", "ddl"] as const;
+export type TableTab = (typeof TABS)[number];
 
-function ModeTabs({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+function TabStrip({ tab, onChange }: { tab: TableTab; onChange: (t: TableTab) => void }) {
   return (
     <div className="flex items-center gap-0.5 rounded-md bg-black/25 p-0.5">
-      {(["data", "structure"] as const).map((m) => (
+      {TABS.map((t) => (
         <button
-          key={m}
-          onClick={() => onChange(m)}
+          key={t}
+          onClick={() => onChange(t)}
           className={clsx(
             "rounded px-2.5 py-0.5 text-xs font-medium capitalize transition-colors",
-            mode === m ? "bg-neutral-700 text-neutral-100" : "text-neutral-400 hover:text-neutral-200",
+            tab === t ? "bg-neutral-700 text-neutral-100" : "text-neutral-400 hover:text-neutral-200",
           )}
         >
-          {m}
+          {t === "ddl" ? "DDL" : t}
         </button>
       ))}
     </div>
@@ -35,34 +40,92 @@ function ModeTabs({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void 
 }
 
 export function TableView({ connectionId, table }: TableViewProps) {
-  const [mode, setMode] = useState<Mode>("data");
-  const { data: rowPage, isLoading, error } = useTableRows(connectionId, table);
-  const { data: columnInfos, error: columnsError } = useColumns(connectionId, table);
+  const [tab, setTab] = useState<TableTab>("data");
+  const [drafts, setDrafts] = useState<DraftFilter[]>([]);
+  const [query, setQuery] = useState<TableQuery>({ filters: [], orderBy: null, orderDesc: false });
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [addColumnOpen, setAddColumnOpen] = useState(false);
+
+  const { data: columnInfos, error: columnsError } = useColumns(connectionId, table);
+  const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, query);
   const addInsert = useChangesStore((s) => s.addInsert);
 
   const hasPk = (columnInfos ?? []).some((c) => c.isPrimaryKey);
 
-  function handleAddRow() {
-    addInsert({ connectionId, table }, crypto.randomUUID());
+  const generatedSql = useMemo(() => {
+    const where = drafts
+      .filter((d) => d.column)
+      .map((d) => {
+        if (d.operator === "IsNull") return `${d.column} IS NULL`;
+        if (d.operator === "IsNotNull") return `${d.column} IS NOT NULL`;
+        const sym: Record<string, string> = {
+          Equals: "=", NotEquals: "<>", GreaterThan: ">", LessThan: "<",
+          GreaterOrEqual: ">=", LessOrEqual: "<=",
+        };
+        if (d.operator in sym) return `${d.column} ${sym[d.operator]} '${d.value}'`;
+        const pat =
+          d.operator === "Contains" ? `%${d.value}%`
+          : d.operator === "StartsWith" ? `${d.value}%`
+          : `%${d.value}`;
+        return `${d.column} LIKE '${pat}'`;
+      });
+    const order = query.orderBy ? ` ORDER BY ${query.orderBy} ${query.orderDesc ? "DESC" : "ASC"}` : "";
+    return `SELECT * FROM ${table}${where.length ? ` WHERE ${where.join(" AND ")}` : ""}${order} LIMIT 500;`;
+  }, [drafts, query.orderBy, query.orderDesc, table]);
+
+  function applyFilters() {
+    setQuery((q) => ({ ...q, filters: toColumnFilters(drafts, columnInfos ?? []) }));
+  }
+
+  function toggleSort(column: string) {
+    setQuery((q) =>
+      q.orderBy === column
+        ? { ...q, orderDesc: !q.orderDesc }
+        : { ...q, orderBy: column, orderDesc: false },
+    );
   }
 
   return (
     <div className="flex h-full flex-col">
       <GridToolbar
+        tabStrip={<TabStrip tab={tab} onChange={setTab} />}
+        tab={tab}
         hasPk={hasPk}
         columnsError={columnsError ? (columnsError as Error).message : null}
-        mode={mode}
-        onModeChange={setMode}
-        modeTabs={<ModeTabs mode={mode} onChange={setMode} />}
-        onAddRow={handleAddRow}
+        rowCount={rowPage?.rows.length ?? 0}
+        hasMore={rowPage?.hasMore ?? false}
+        busy={isFetching}
+        onAddRow={() => addInsert({ connectionId, table }, crypto.randomUUID())}
+        onAddColumn={() => {
+          setTab("structure");
+          setAddColumnOpen(true);
+        }}
         onReviewChanges={() => setReviewOpen(true)}
       />
 
+      {tab === "data" && (
+        <FilterBar
+          columns={columnInfos ?? []}
+          drafts={drafts}
+          onChange={setDrafts}
+          onApply={applyFilters}
+          generatedSql={generatedSql}
+        />
+      )}
+
       <div className="min-h-0 flex-1">
-        {mode === "structure" ? (
-          <StructureView connectionId={connectionId} table={table} />
-        ) : (
+        {tab === "structure" && (
+          <StructureView
+            connectionId={connectionId}
+            table={table}
+            addOpen={addColumnOpen}
+            onAddOpenChange={setAddColumnOpen}
+          />
+        )}
+        {tab === "indexes" && <IndexesView connectionId={connectionId} table={table} />}
+        {tab === "triggers" && <TriggersView connectionId={connectionId} table={table} />}
+        {tab === "ddl" && <DdlView connectionId={connectionId} table={table} />}
+        {tab === "data" && (
           <>
             {isLoading && (
               <div className="flex h-full items-center justify-center text-sm text-neutral-500">
@@ -74,13 +137,16 @@ export function TableView({ connectionId, table }: TableViewProps) {
                 {(error as Error).message}
               </div>
             )}
-            {rowPage && (
+            {rowPage && !error && (
               <DataGrid
                 connectionId={connectionId}
                 table={table}
                 columns={rowPage.columns}
                 rows={rowPage.rows}
                 columnInfos={columnInfos ?? []}
+                sortColumn={query.orderBy}
+                sortDesc={query.orderDesc}
+                onToggleSort={toggleSort}
               />
             )}
           </>

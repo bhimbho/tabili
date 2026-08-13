@@ -27,7 +27,9 @@ export const commands = {
 	getColumns: (connectionId: string, table: string) => typedError<ColumnInfo[], AppError>(__TAURI_INVOKE("get_columns", { connectionId, table })),
 	getIndexes: (connectionId: string, table: string) => typedError<IndexInfo[], AppError>(__TAURI_INVOKE("get_indexes", { connectionId, table })),
 	getForeignKeys: (connectionId: string, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, table })),
-	fetchRows: (connectionId: string, table: string, limit: number, offset: number) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, table, limit, offset })),
+	getTriggers: (connectionId: string, table: string) => typedError<TriggerInfo[], AppError>(__TAURI_INVOKE("get_triggers", { connectionId, table })),
+	getTableDdl: (connectionId: string, table: string) => typedError<string, AppError>(__TAURI_INVOKE("get_table_ddl", { connectionId, table })),
+	fetchRows: (connectionId: string, table: string, limit: number, offset: number, orderBy: string | null, orderDesc: boolean, filters: ColumnFilter[]) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, table, limit, offset, orderBy, orderDesc, filters })),
 	insertRow: (connectionId: string, table: string, values: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("insert_row", { connectionId, table, values })),
 	updateRow: (connectionId: string, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<null, AppError>(__TAURI_INVOKE("update_row", { connectionId, table, pk, changes })),
 	deleteRows: (connectionId: string, table: string, pks: { [key in string]: DbValue }[]) => typedError<null, AppError>(__TAURI_INVOKE("delete_rows", { connectionId, table, pks })),
@@ -52,6 +54,16 @@ export type AppError = {
 export type AppInfo = {
 	name: string,
 	version: string,
+};
+
+export type ColumnFilter = {
+	column: string,
+	operator: FilterOperator,
+	/**
+	 *  Typed by the frontend from the column's declared type so it binds as the
+	 *  right SQL type; ignored for IS NULL / IS NOT NULL.
+	 */
+	value: DbValue | null,
 };
 
 export type ColumnInfo = {
@@ -89,6 +101,8 @@ export type DbValue = { type: "Null" } | { type: "Bool"; value: boolean } |
 	raw: string,
 	typeName: string,
 } };
+
+export type FilterOperator = "Equals" | "NotEquals" | "Contains" | "StartsWith" | "EndsWith" | "GreaterThan" | "LessThan" | "GreaterOrEqual" | "LessOrEqual" | "IsNull" | "IsNotNull";
 
 export type ForeignKeyInfo = {
 	name: string,
@@ -162,6 +176,13 @@ export type TableInfo = {
 	name: string,
 	isView: boolean,
 	estimatedRowCount: number,
+};
+
+export type TriggerInfo = {
+	name: string,
+	timing: string,
+	event: string,
+	statement: string,
 };
 
 /* Tauri Specta runtime */

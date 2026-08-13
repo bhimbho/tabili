@@ -3,24 +3,39 @@ import { useChangesStore } from "../../stores/changesStore";
 import { PlusIcon } from "../ui/icons";
 
 interface GridToolbarProps {
+  tabStrip: ReactNode;
+  tab: string;
   hasPk: boolean;
   /** Non-null when schema introspection failed — the real reason editing is off. */
   columnsError: string | null;
-  mode: "data" | "structure";
-  onModeChange: (mode: "data" | "structure") => void;
-  modeTabs: ReactNode;
+  rowCount: number;
+  hasMore: boolean;
+  busy: boolean;
   onAddRow: () => void;
+  onAddColumn: () => void;
   onReviewChanges: () => void;
 }
 
-export function GridToolbar({ hasPk, columnsError, mode, modeTabs, onAddRow, onReviewChanges }: GridToolbarProps) {
+export function GridToolbar({
+  tabStrip,
+  tab,
+  hasPk,
+  columnsError,
+  rowCount,
+  hasMore,
+  busy,
+  onAddRow,
+  onAddColumn,
+  onReviewChanges,
+}: GridToolbarProps) {
   const count = useChangesStore((s) => s.count());
-  const isData = mode === "data";
+  const isData = tab === "data";
 
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-800 bg-neutral-900 px-3">
+    <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-neutral-800 bg-neutral-900 px-3">
       <div className="flex min-w-0 items-center gap-2">
-        {modeTabs}
+        {tabStrip}
+
         {isData && (
           <button
             onClick={onAddRow}
@@ -29,9 +44,17 @@ export function GridToolbar({ hasPk, columnsError, mode, modeTabs, onAddRow, onR
             className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <PlusIcon className="h-3 w-3" />
-            Add Row
+            Row
           </button>
         )}
+        <button
+          onClick={onAddColumn}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+        >
+          <PlusIcon className="h-3 w-3" />
+          Column
+        </button>
+
         {isData && columnsError && (
           <span className="truncate text-xs text-red-400" title={columnsError}>
             Schema load failed — {columnsError}
@@ -42,13 +65,20 @@ export function GridToolbar({ hasPk, columnsError, mode, modeTabs, onAddRow, onR
         )}
       </div>
 
-      <button
-        onClick={onReviewChanges}
-        disabled={count === 0}
-        className="shrink-0 rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
-      >
-        Pending Changes {count > 0 ? count : ""}
-      </button>
+      <div className="flex shrink-0 items-center gap-3">
+        {isData && (
+          <span className="text-xs text-neutral-500">
+            {busy ? "…" : `${rowCount}${hasMore ? "+" : ""} rows`}
+          </span>
+        )}
+        <button
+          onClick={onReviewChanges}
+          disabled={count === 0}
+          className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+        >
+          Pending Changes {count > 0 ? count : ""}
+        </button>
+      </div>
     </div>
   );
 }

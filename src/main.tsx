@@ -6,6 +6,14 @@ import "./index.css";
 
 const queryClient = new QueryClient();
 
+// Suppress the webview's own "Inspect Element" menu so right-click can be handed
+// to app-specific menus. Text inputs keep the native menu (cut/copy/paste).
+document.addEventListener("contextmenu", (e) => {
+  const target = e.target as HTMLElement | null;
+  if (target?.closest("input, textarea, [contenteditable='true']")) return;
+  e.preventDefault();
+});
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

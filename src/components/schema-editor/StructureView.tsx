@@ -1,130 +1,103 @@
-import { useState, type ReactNode } from "react";
-import { useColumns, useForeignKeys, useIndexes } from "../../hooks/useSchema";
+import { useState } from "react";
+import { useColumns, useForeignKeys } from "../../hooks/useSchema";
 import { KeyIcon, PlusIcon } from "../ui/icons";
+import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { AddColumnDialog } from "./AddColumnDialog";
 import { DropColumnDialog } from "./DropColumnDialog";
+import { DataTable, Empty, Panel, PanelState } from "./panels";
 
 interface StructureViewProps {
   connectionId: string;
   table: string;
+  /** Opened from the toolbar's "+ Column" action as well as the in-panel button. */
+  addOpen: boolean;
+  onAddOpenChange: (open: boolean) => void;
 }
 
-function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="mb-6">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Table({ head, children }: { head: string[]; children: ReactNode }) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-800">
-      <table className="w-full text-left text-xs">
-        <thead className="bg-neutral-900/60 text-neutral-500">
-          <tr>
-            {head.map((h) => (
-              <th key={h} className="whitespace-nowrap px-3 py-2 font-medium">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-800/70">{children}</tbody>
-      </table>
-    </div>
-  );
-}
-
-function Empty({ children }: { children: ReactNode }) {
-  return <p className="rounded-lg border border-neutral-800 px-3 py-3 text-xs text-neutral-600">{children}</p>;
-}
-
-export function StructureView({ connectionId, table }: StructureViewProps) {
+export function StructureView({ connectionId, table, addOpen, onAddOpenChange }: StructureViewProps) {
   const { data: columns, isLoading, error } = useColumns(connectionId, table);
-  const { data: indexes } = useIndexes(connectionId, table);
   const { data: foreignKeys } = useForeignKeys(connectionId, table);
-  const [addOpen, setAddOpen] = useState(false);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [menuColumn, setMenuColumn] = useState<string | null>(null);
+  const menu = useContextMenu();
 
-  if (isLoading) {
-    return <div className="flex h-full items-center justify-center text-sm text-neutral-500">Loading structure…</div>;
-  }
-  if (error) {
+  const menuItems: MenuEntry[] = [
+    {
+      label: "Copy column name",
+      onSelect: () => menuColumn && navigator.clipboard.writeText(menuColumn),
+    },
+    null,
+    { label: "Add column…", onSelect: () => onAddOpenChange(true) },
+    {
+      label: "Drop column…",
+      danger: true,
+      onSelect: () => menuColumn && setDropTarget(menuColumn),
+    },
+  ];
+
+  if (isLoading || error) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-400">
-        {(error as Error).message}
-      </div>
+      <Panel>
+        <PanelState loading={isLoading} error={error} />
+      </Panel>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-4">
-      <Section
-        title="Columns"
-        action={
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+    <Panel>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Columns</h3>
+        <button
+          onClick={() => onAddOpenChange(true)}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+        >
+          <PlusIcon className="h-3 w-3" />
+          Add Column
+        </button>
+      </div>
+
+      <DataTable head={["", "Name", "Type", "Nullable", "Default", ""]}>
+        {columns?.map((col) => (
+          <tr
+            key={col.name}
+            className="group text-neutral-300"
+            onContextMenu={(e) => {
+              setMenuColumn(col.name);
+              menu.open(e);
+            }}
           >
-            <PlusIcon className="h-3 w-3" />
-            Add Column
-          </button>
-        }
-      >
-        <Table head={["", "Name", "Type", "Nullable", "Default", ""]}>
-          {columns?.map((col) => (
-            <tr key={col.name} className="group text-neutral-300">
-              <td className="w-6 px-3 py-1.5">
-                {col.isPrimaryKey && (
-                  <span title="Primary key">
-                    <KeyIcon className="h-3 w-3 text-amber-500" />
-                  </span>
-                )}
-              </td>
-              <td className="whitespace-nowrap px-3 py-1.5 font-medium">{col.name}</td>
-              <td className="whitespace-nowrap px-3 py-1.5 font-mono text-neutral-400">{col.dataType}</td>
-              <td className="px-3 py-1.5 text-neutral-500">{col.nullable ? "YES" : "NO"}</td>
-              <td className="max-w-[220px] truncate px-3 py-1.5 font-mono text-neutral-500">
-                {col.defaultValue ?? "—"}
-              </td>
-              <td className="w-8 px-3 py-1.5 text-right">
-                <button
-                  onClick={() => setDropTarget(col.name)}
-                  title="Drop column"
-                  className="rounded px-1 text-neutral-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
-                >
-                  ×
-                </button>
-              </td>
-            </tr>
-          ))}
-        </Table>
-      </Section>
+            <td className="w-6 px-3 py-1.5">
+              {col.isPrimaryKey && (
+                <span title="Primary key">
+                  <KeyIcon className="h-3 w-3 text-amber-500" />
+                </span>
+              )}
+            </td>
+            <td className="whitespace-nowrap px-3 py-1.5 font-medium">{col.name}</td>
+            <td className="whitespace-nowrap px-3 py-1.5 font-mono text-neutral-400">{col.dataType}</td>
+            <td className="px-3 py-1.5 text-neutral-500">{col.nullable ? "YES" : "NO"}</td>
+            <td className="max-w-[220px] truncate px-3 py-1.5 font-mono text-neutral-500">
+              {col.defaultValue ?? "—"}
+            </td>
+            <td className="w-8 px-3 py-1.5 text-right">
+              <button
+                onClick={() => setDropTarget(col.name)}
+                title="Drop column"
+                className="rounded px-1 text-neutral-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+              >
+                ×
+              </button>
+            </td>
+          </tr>
+        ))}
+      </DataTable>
 
-      <Section title="Indexes">
-        {indexes && indexes.length > 0 ? (
-          <Table head={["Name", "Columns", "Unique"]}>
-            {indexes.map((idx) => (
-              <tr key={idx.name} className="text-neutral-300">
-                <td className="whitespace-nowrap px-3 py-1.5 font-medium">{idx.name}</td>
-                <td className="px-3 py-1.5 font-mono text-neutral-400">{idx.columns.join(", ")}</td>
-                <td className="px-3 py-1.5 text-neutral-500">{idx.isUnique ? "YES" : "NO"}</td>
-              </tr>
-            ))}
-          </Table>
-        ) : (
-          <Empty>No indexes.</Empty>
-        )}
-      </Section>
-
-      <Section title="Foreign Keys">
+      <div className="mt-6">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+          Foreign Keys
+        </h3>
         {foreignKeys && foreignKeys.length > 0 ? (
-          <Table head={["Name", "Columns", "References"]}>
+          <DataTable head={["Name", "Columns", "References"]}>
             {foreignKeys.map((fk) => (
               <tr key={fk.name} className="text-neutral-300">
                 <td className="whitespace-nowrap px-3 py-1.5 font-medium">{fk.name}</td>
@@ -134,17 +107,18 @@ export function StructureView({ connectionId, table }: StructureViewProps) {
                 </td>
               </tr>
             ))}
-          </Table>
+          </DataTable>
         ) : (
           <Empty>No foreign keys.</Empty>
         )}
-      </Section>
+      </div>
 
+      <ContextMenu position={menu.position} items={menuItems} onClose={menu.close} />
       <AddColumnDialog
         connectionId={connectionId}
         table={table}
         open={addOpen}
-        onOpenChange={setAddOpen}
+        onOpenChange={onAddOpenChange}
       />
       <DropColumnDialog
         connectionId={connectionId}
@@ -152,6 +126,6 @@ export function StructureView({ connectionId, table }: StructureViewProps) {
         column={dropTarget}
         onClose={() => setDropTarget(null)}
       />
-    </div>
+    </Panel>
   );
 }

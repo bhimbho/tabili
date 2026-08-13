@@ -103,10 +103,92 @@ pub struct ForeignKeyInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct TriggerInfo {
+    pub name: String,
+    pub timing: String,
+    pub event: String,
+    pub statement: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum FilterOperator {
+    Equals,
+    NotEquals,
+    Contains,
+    StartsWith,
+    EndsWith,
+    GreaterThan,
+    LessThan,
+    GreaterOrEqual,
+    LessOrEqual,
+    IsNull,
+    IsNotNull,
+}
+
+impl FilterOperator {
+    /// IS NULL / IS NOT NULL are the only operators that take no operand.
+    pub fn takes_value(self) -> bool {
+        !matches!(self, FilterOperator::IsNull | FilterOperator::IsNotNull)
+    }
+
+    /// Text-pattern operators always compare as text, so the column gets cast.
+    pub fn is_pattern(self) -> bool {
+        matches!(
+            self,
+            FilterOperator::Contains | FilterOperator::StartsWith | FilterOperator::EndsWith
+        )
+    }
+
+    pub fn wrap_pattern(self, raw: &str) -> String {
+        match self {
+            FilterOperator::Contains => format!("%{raw}%"),
+            FilterOperator::StartsWith => format!("{raw}%"),
+            FilterOperator::EndsWith => format!("%{raw}"),
+            _ => raw.to_string(),
+        }
+    }
+
+    pub fn sql_symbol(self) -> &'static str {
+        match self {
+            FilterOperator::Equals => "=",
+            FilterOperator::NotEquals => "<>",
+            FilterOperator::GreaterThan => ">",
+            FilterOperator::LessThan => "<",
+            FilterOperator::GreaterOrEqual => ">=",
+            FilterOperator::LessOrEqual => "<=",
+            FilterOperator::Contains | FilterOperator::StartsWith | FilterOperator::EndsWith => {
+                "LIKE"
+            }
+            FilterOperator::IsNull => "IS NULL",
+            FilterOperator::IsNotNull => "IS NOT NULL",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnFilter {
+    pub column: String,
+    pub operator: FilterOperator,
+    /// Typed by the frontend from the column's declared type so it binds as the
+    /// right SQL type; ignored for IS NULL / IS NOT NULL.
+    pub value: Option<DbValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct FetchOptions {
     pub limit: u32,
     pub offset: u32,
     pub order_by: Option<String>,
+    pub order_desc: bool,
+    pub filters: Vec<ColumnFilter>,
+}
+
+impl FetchOptions {
+    pub fn page(limit: u32, offset: u32) -> Self {
+        Self { limit, offset, order_by: None, order_desc: false, filters: Vec::new() }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

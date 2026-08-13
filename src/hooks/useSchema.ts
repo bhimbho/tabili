@@ -37,6 +37,30 @@ export function useIndexes(connectionId: string | null, table: string | null) {
   });
 }
 
+export function useTriggers(connectionId: string | null, table: string | null) {
+  return useQuery({
+    queryKey: ["triggers", connectionId, table],
+    queryFn: async () => {
+      const result = await commands.getTriggers(connectionId as string, table as string);
+      if (result.status === "error") throw new Error(result.error.message);
+      return result.data;
+    },
+    enabled: !!connectionId && !!table,
+  });
+}
+
+export function useTableDdl(connectionId: string | null, table: string | null) {
+  return useQuery({
+    queryKey: ["table-ddl", connectionId, table],
+    queryFn: async () => {
+      const result = await commands.getTableDdl(connectionId as string, table as string);
+      if (result.status === "error") throw new Error(result.error.message);
+      return result.data;
+    },
+    enabled: !!connectionId && !!table,
+  });
+}
+
 export function useForeignKeys(connectionId: string | null, table: string | null) {
   return useQuery({
     queryKey: ["foreign-keys", connectionId, table],

@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use crate::db::{
-    ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError, DbValue,
-    FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage, SchemaInfo,
-    SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
+    filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
+    DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
+    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo,
 };
 use introspect::{quote_ident, quote_qualified};
 
@@ -109,6 +109,14 @@ impl DatabaseDriver for PostgresDriver {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
         introspect::get_foreign_keys(&self.pool, schema, &table.table).await
     }
+    async fn get_triggers(&self, table: &TableRef) -> Result<Vec<TriggerInfo>, DbError> {
+        let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
+        introspect::get_triggers(&self.pool, schema, &table.table).await
+    }
+    async fn get_table_ddl(&self, table: &TableRef) -> Result<String, DbError> {
+        let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
+        introspect::get_table_ddl(&self.pool, schema, &table.table).await
+    }
     async fn estimated_row_count(&self, table: &TableRef) -> Result<Option<i64>, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
         introspect::estimated_row_count(&self.pool, schema, &table.table).await
@@ -116,19 +124,32 @@ impl DatabaseDriver for PostgresDriver {
 
     async fn fetch_rows(&self, table: &TableRef, opts: FetchOptions) -> Result<RowPage, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
-        let order_clause = opts
-            .order_by
-            .as_ref()
-            .map(|c| format!(" ORDER BY {}", quote_ident(c)))
-            .unwrap_or_default();
+        let mut idx = 0;
+        let where_clause = filter::build_where(
+            &opts.filters,
+            quote_ident,
+            || {
+                idx += 1;
+                format!("${idx}")
+            },
+            |col| format!("{col}::text"),
+        );
+        let order = filter::order_clause(opts.order_by.as_ref(), opts.order_desc, quote_ident);
         let query = format!(
-            "SELECT * FROM {}{} LIMIT $1 OFFSET $2",
+            "SELECT * FROM {}{}{} LIMIT ${} OFFSET ${}",
             quote_qualified(schema, &table.table),
-            order_clause
+            where_clause.sql,
+            order,
+            idx + 1,
+            idx + 2
         );
 
         let fetch_limit = opts.limit as i64 + 1;
-        let rows = sqlx::query(sqlx::AssertSqlSafe(query))
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(query));
+        for value in &where_clause.binds {
+            q = mutate::bind_value(q, value)?;
+        }
+        let rows = q
             .bind(fetch_limit)
             .bind(opts.offset as i64)
             .fetch_all(&self.pool)
