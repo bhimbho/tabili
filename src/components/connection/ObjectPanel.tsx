@@ -61,21 +61,26 @@ export function ObjectPanel() {
 
   const connection = connections.find((c) => c.id === connectionId);
   const connected = connection?.isConnected ?? false;
-  const schema = connectionId ? activeSchema[connectionId] : undefined;
+  const schema = (connectionId ? activeSchema[connectionId] : undefined) || undefined;
 
   const { data: schemas } = useSchemas(connected ? connectionId : null);
   const { data: databases } = useDatabases(connected ? connectionId : null);
   const { data: info } = useServerInfo(connected ? connectionId : null);
   const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   // Postgres can't change database in place, so the backend swaps the pool and
   // everything scoped to this connection has to be refetched.
   async function switchDatabase(name: string) {
     if (!connectionId || name === info?.database) return;
     setSwitching(true);
+    setSwitchError(null);
     const result = await commands.switchDatabase(connectionId, name);
     setSwitching(false);
-    if (result.status === "error") return;
+    if (result.status === "error") {
+      setSwitchError(friendlyError(result.error.message));
+      return;
+    }
     closeTabsFor(connectionId);
     setActiveSchema(connectionId, "");
     for (const key of ["server-info", "schemas", "tables", "views", "rows", "columns"]) {
@@ -241,6 +246,9 @@ export function ObjectPanel() {
                 options={databases.map((d) => ({ value: d.name, label: d.name }))}
               />
             </label>
+          )}
+          {switchError && (
+            <p className="px-0.5 text-[11px] text-red-400">{switchError}</p>
           )}
           {schemas && schemas.length > 0 && (
             <label className="block">

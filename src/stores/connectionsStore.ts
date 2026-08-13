@@ -42,6 +42,7 @@ interface ConnectionsState {
   setConnected: (id: string, connected: boolean) => void;
   removeConnection: (id: string) => void;
   setActiveConnection: (id: string | null) => void;
+  /** Passing an empty string clears the selection back to the driver default. */
   setActiveSchema: (connectionId: string, schema: string) => void;
 }
 
@@ -51,7 +52,14 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
   activeSchema: {},
 
   setActiveSchema: (connectionId, schema) =>
-    set((state) => ({ activeSchema: { ...state.activeSchema, [connectionId]: schema } })),
+    set((state) => {
+      const next = { ...state.activeSchema };
+      // An empty string is not a valid schema name — storing one made every
+      // query ask the server for a schema literally called "".
+      if (schema) next[connectionId] = schema;
+      else delete next[connectionId];
+      return { activeSchema: next };
+    }),
 
   setConnections: (conns) =>
     set((state) => ({

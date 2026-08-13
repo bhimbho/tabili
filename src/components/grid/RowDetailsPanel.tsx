@@ -4,6 +4,7 @@ import { KeyIcon } from "../ui/icons";
 import type { FkMap } from "./DataGrid";
 
 interface RowDetailsPanelProps {
+  width: number;
   row: Record<string, DbValue> | null;
   columnInfos: ColumnInfo[];
   columns: string[];
@@ -48,6 +49,7 @@ function isMultiline(value: DbValue | undefined) {
 }
 
 export function RowDetailsPanel({
+  width,
   row,
   columnInfos,
   columns,
@@ -60,7 +62,10 @@ export function RowDetailsPanel({
   const shown = columns.filter((c) => !needle || c.toLowerCase().includes(needle));
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
+    <aside
+      style={{ width }}
+      className="flex shrink-0 flex-col border-l border-neutral-800 bg-neutral-900"
+    >
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-800 px-3">
         <span className="text-xs font-semibold text-neutral-200">Details</span>
         <button

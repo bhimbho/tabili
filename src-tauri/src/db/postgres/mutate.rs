@@ -10,18 +10,41 @@ use crate::db::types::DbValue;
 
 pub(super) type PgQuery<'q> = sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>;
 
-/// Some variants need an explicit cast alongside their placeholder since Postgres
-/// won't implicitly coerce a text bind into uuid/timestamptz/jsonb. DateTime
-/// collapses TIMESTAMP/TIMESTAMPTZ/DATE/TIME on read (see decode.rs) — writing
-/// back always targets timestamptz, a known approximation for the other three.
-fn cast_suffix(value: &DbValue) -> &'static str {
-    match value {
-        DbValue::Uuid(_) => "::uuid",
-        DbValue::DateTime(_) => "::timestamptz",
-        DbValue::Json(_) => "::jsonb",
-        DbValue::Decimal(_) => "::numeric",
-        _ => "",
+/// Postgres won't implicitly coerce a text bind into uuid/timestamptz/jsonb, and
+/// user-defined types (enums, domains) reject it outright. `column_types` maps a
+/// column to the type `format_type` reported for it, so string-shaped values are
+/// cast to exactly the column's own type — that's what makes enum columns
+/// editable. Values that already bind as a native Rust type need no cast.
+fn cast_suffix(value: &DbValue, column: &str, column_types: &HashMap<String, String>) -> String {
+    let needs_cast = matches!(
+        value,
+        DbValue::Text(_) | DbValue::Uuid(_) | DbValue::DateTime(_) | DbValue::Json(_)
+    );
+    if !needs_cast {
+        return String::new();
     }
+    match column_types.get(column) {
+        Some(ty) => format!("::{ty}"),
+        // Without type information, fall back to the variant's best guess.
+        None => match value {
+            DbValue::Uuid(_) => "::uuid".to_string(),
+            DbValue::DateTime(_) => "::timestamptz".to_string(),
+            DbValue::Json(_) => "::jsonb".to_string(),
+            _ => String::new(),
+        },
+    }
+}
+
+/// Column name -> declared type, used to cast bound parameters correctly.
+async fn column_types(
+    pool: &PgPool,
+    schema: &str,
+    table: &str,
+) -> HashMap<String, String> {
+    super::introspect::get_columns(pool, schema, table)
+        .await
+        .map(|cols| cols.into_iter().map(|c| (c.name, c.data_type)).collect())
+        .unwrap_or_default()
 }
 
 pub(super) fn bind_value<'q>(
@@ -60,6 +83,7 @@ pub(super) fn bind_value<'q>(
 fn build_assignments<'a>(
     values: &'a HashMap<String, DbValue>,
     next_idx: &mut usize,
+    types: &HashMap<String, String>,
 ) -> (Vec<String>, Vec<&'a DbValue>) {
     let mut fragments = Vec::with_capacity(values.len());
     let mut binds = Vec::new();
@@ -67,7 +91,12 @@ fn build_assignments<'a>(
         if matches!(val, DbValue::Null) {
             fragments.push(format!("{} = NULL", quote_ident(col)));
         } else {
-            fragments.push(format!("{} = ${}{}", quote_ident(col), next_idx, cast_suffix(val)));
+            fragments.push(format!(
+                "{} = ${}{}",
+                quote_ident(col),
+                next_idx,
+                cast_suffix(val, col, types)
+            ));
             *next_idx += 1;
             binds.push(val);
         }
@@ -81,6 +110,7 @@ pub async fn insert_row(
     table: &str,
     values: &HashMap<String, DbValue>,
 ) -> Result<String, DbError> {
+    let types = column_types(pool, schema, table).await;
     let mut columns = Vec::with_capacity(values.len());
     let mut placeholders = Vec::with_capacity(values.len());
     let mut binds = Vec::new();
@@ -90,7 +120,7 @@ pub async fn insert_row(
         if matches!(val, DbValue::Null) {
             placeholders.push("NULL".to_string());
         } else {
-            placeholders.push(format!("${}{}", idx, cast_suffix(val)));
+            placeholders.push(format!("${}{}", idx, cast_suffix(val, col, &types)));
             idx += 1;
             binds.push(val);
         }
@@ -123,9 +153,10 @@ pub async fn update_row(
     if pk.is_empty() {
         return Err(DbError::NoPrimaryKey);
     }
+    let types = column_types(pool, schema, table).await;
     let mut idx = 1;
-    let (set_fragments, set_binds) = build_assignments(changes, &mut idx);
-    let (where_fragments, where_binds) = build_assignments(pk, &mut idx);
+    let (set_fragments, set_binds) = build_assignments(changes, &mut idx, &types);
+    let (where_fragments, where_binds) = build_assignments(pk, &mut idx, &types);
 
     let sql = format!(
         "UPDATE {} SET {} WHERE {}",
@@ -153,11 +184,12 @@ pub async fn delete_rows(
     if pks.iter().any(|pk| pk.is_empty()) {
         return Err(DbError::NoPrimaryKey);
     }
+    let types = column_types(pool, schema, table).await;
     let mut tx = pool.begin().await.map_err(|e| DbError::Query(e.to_string()))?;
     let mut executed = Vec::with_capacity(pks.len());
     for pk in pks {
         let mut idx = 1;
-        let (where_fragments, where_binds) = build_assignments(pk, &mut idx);
+        let (where_fragments, where_binds) = build_assignments(pk, &mut idx, &types);
         let sql = format!(
             "DELETE FROM {} WHERE {}",
             quote_qualified(schema, table),

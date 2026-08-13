@@ -1,6 +1,8 @@
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
 import { useServerInfo } from "../../hooks/useConnections";
+import { useLayoutStore } from "../../stores/layoutStore";
+import { PanelIcon } from "../ui/icons";
 
 /** Warn-styled header for connections the user has marked red (production). */
 function isDanger(color?: string | null) {
@@ -14,6 +16,7 @@ export function TopBar() {
   const connections = useConnectionsStore((s) => s.connections);
   const activeSchema = useConnectionsStore((s) => s.activeSchema);
   const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
+  const { sidebarVisible, toggleSidebar } = useLayoutStore();
 
   const connection = connections.find((c) => c.id === activeId);
   const { data: info } = useServerInfo(connection?.isConnected ? activeId : null);
@@ -31,6 +34,16 @@ export function TopBar() {
         backgroundColor: connection ? `${connection.accentColor}14` : undefined,
       }}
     >
+      <button
+        onClick={toggleSidebar}
+        title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+        className={`shrink-0 rounded-md p-1 transition-colors hover:bg-white/10 ${
+          sidebarVisible ? "text-neutral-300" : "text-neutral-600"
+        }`}
+      >
+        <PanelIcon className="h-4 w-4" />
+      </button>
+
       {connection ? (
         <>
           <span
