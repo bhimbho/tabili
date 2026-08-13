@@ -84,9 +84,13 @@ impl DatabaseDriver for SqliteDriver {
     async fn fetch_rows(&self, table: &TableRef, opts: FetchOptions) -> Result<RowPage, DbError> {
         let where_clause = filter::build_where(
             &opts.filters,
-            quote_ident,
-            || "?".to_string(),
-            |col| format!("CAST({col} AS TEXT)"),
+            filter::Dialect {
+                quote: quote_ident,
+                placeholder: || "?".to_string(),
+                cast_text: |col: &str| format!("CAST({col} AS TEXT)"),
+                // SQLite's LIKE is already case-insensitive for ASCII.
+                like: "LIKE",
+            },
         );
         let order = filter::order_clause(opts.order_by.as_ref(), opts.order_desc, quote_ident);
         let query = format!(
