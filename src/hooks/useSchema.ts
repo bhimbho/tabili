@@ -9,6 +9,14 @@ function unwrap<T>(result: { status: "ok"; data: T } | { status: "error"; error:
   return result.data;
 }
 
+export function useDatabases(connectionId: string | null) {
+  return useQuery({
+    queryKey: ["databases", connectionId],
+    queryFn: async () => unwrap(await commands.listDatabases(connectionId as string)),
+    enabled: !!connectionId,
+  });
+}
+
 export function useSchemas(connectionId: string | null) {
   return useQuery({
     queryKey: ["schemas", connectionId],

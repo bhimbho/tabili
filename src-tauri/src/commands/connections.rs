@@ -6,7 +6,7 @@ use crate::app_store::{AppStore, SavedConnectionRecord};
 use crate::connection_registry::ConnectionRegistry;
 use crate::credentials;
 use crate::db::error::AppError;
-use crate::db::{connect_driver, ConnectionConfig, DbError, DbKind, SqlDialect};
+use crate::db::{connect_driver, ConnectionConfig, DatabaseInfo, DbError, DbKind, SqlDialect};
 
 #[derive(Debug, Clone, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -163,6 +163,59 @@ pub async fn connect_saved(
         display_name: record.name,
         color: record.color,
     })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_databases(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+) -> Result<Vec<DatabaseInfo>, AppError> {
+    let driver = registry
+        .get(&connection_id)
+        .await
+        .ok_or_else(|| AppError::from(DbError::Connection("unknown connection".into())))?;
+    driver.list_databases().await.map_err(AppError::from)
+}
+
+/// Postgres binds a connection to one database for its lifetime, so switching
+/// means opening a fresh pool against the target and swapping it in under the
+/// same connection id — tabs and saved metadata keep working unchanged. The
+/// saved record is updated so the choice survives a restart.
+#[tauri::command]
+#[specta::specta]
+pub async fn switch_database(
+    registry: State<'_, ConnectionRegistry>,
+    app_store: State<'_, AppStore>,
+    connection_id: String,
+    database: String,
+) -> Result<(), AppError> {
+    let mut record = app_store
+        .get(&connection_id)
+        .await
+        .map_err(AppError::from)?
+        .ok_or_else(|| AppError::from(DbError::Connection("saved connection not found".into())))?;
+
+    if record.dialect == SqlDialect::Sqlite {
+        return Err(AppError::from(DbError::Unsupported(
+            "SQLite connections hold a single database file".into(),
+        )));
+    }
+
+    let password = credentials::get_password(&connection_id).map_err(AppError::from)?;
+    record.database = Some(database);
+    let config = config_from_record(&record, password);
+    let driver = connect_driver(dialect_kind(record.dialect), &config)
+        .await
+        .map_err(AppError::from)?;
+
+    // Only replace the live pool once the new one is known good.
+    if let Some(old) = registry.remove(&connection_id).await {
+        let _ = old.close().await;
+    }
+    registry.insert(connection_id.clone(), driver).await;
+    app_store.upsert(&record).await.map_err(AppError::from)?;
+    Ok(())
 }
 
 #[tauri::command]

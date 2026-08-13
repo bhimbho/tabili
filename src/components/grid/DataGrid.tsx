@@ -11,13 +11,7 @@ import "@glideapps/glide-data-grid/dist/index.css";
 import type { ColumnInfo, DbValue } from "../../bindings";
 import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
 import { ContextMenu, type MenuEntry, type MenuPosition } from "../ui/ContextMenu";
-import {
-  darkGridTheme,
-  DELETE_THEME,
-  EDIT_THEME,
-  FK_THEME,
-  INSERT_THEME,
-} from "./gridTheme";
+import { darkGridTheme, DELETE_THEME, EDIT_THEME, INSERT_THEME } from "./gridTheme";
 
 /** column -> the table/column it points at, used for the jump affordance. */
 export type FkMap = Record<string, { table: string; column: string }>;
@@ -210,8 +204,8 @@ export function DataGrid({
       const shown = edit ? edit.newValue : value;
       const display = displayValue(shown);
       const fk = foreignKeys[columnName];
-      // A trailing arrow marks the clickable jump zone, mirroring how the value
-      // itself stays readable and selectable.
+      // A trailing arrow marks the clickable jump zone. The value keeps normal
+      // cell styling so foreign keys don't stand out as differently-typed data.
       const isLinkable = fk !== undefined && shown !== undefined && shown.type !== "Null";
 
       return {
@@ -219,13 +213,7 @@ export function DataGrid({
         data: display,
         displayData: isLinkable ? `${display}  →` : display,
         allowOverlay: hasPk && !deleted && isEditableValue(value),
-        themeOverride: deleted
-          ? DELETE_THEME
-          : edit
-            ? EDIT_THEME
-            : isLinkable
-              ? FK_THEME
-              : undefined,
+        themeOverride: deleted ? DELETE_THEME : edit ? EDIT_THEME : undefined,
         cursor: isLinkable ? "pointer" : undefined,
       };
     },

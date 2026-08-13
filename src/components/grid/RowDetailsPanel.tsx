@@ -108,7 +108,7 @@ export function RowDetailsPanel({
                     <button
                       onClick={() => onFollowForeignKey(fk, value)}
                       title={`Go to ${fk.table}.${fk.column}`}
-                      className="selectable flex w-full items-center justify-between gap-2 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1 text-left text-xs text-indigo-400 transition-colors hover:border-indigo-700 hover:bg-indigo-950/30"
+                      className="selectable flex w-full items-center justify-between gap-2 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1 text-left text-xs text-neutral-200 transition-colors hover:border-neutral-600 hover:bg-neutral-800"
                     >
                       <span className="truncate">{display(value)}</span>
                       <span className="shrink-0 text-[10px] text-neutral-500">
