@@ -16,6 +16,11 @@ pub(super) fn bind_value<'q>(
 ) -> Result<SqliteQuery<'q>, DbError> {
     Ok(match value {
         DbValue::Null => unreachable!("null values are inlined as SQL literals, not bound"),
+        DbValue::Default => {
+            return Err(DbError::Unsupported(
+                "SQLite has no DEFAULT keyword in UPDATE — set an explicit value".into(),
+            ))
+        }
         DbValue::Bool(b) => query.bind(*b),
         DbValue::Int(i) => query.bind(*i),
         DbValue::Float(f) => query.bind(*f),

@@ -52,7 +52,9 @@ pub(super) fn bind_value<'q>(
     value: &'q DbValue,
 ) -> Result<PgQuery<'q>, DbError> {
     Ok(match value {
-        DbValue::Null => unreachable!("null values are inlined as SQL literals, not bound"),
+        DbValue::Null | DbValue::Default => {
+            unreachable!("NULL/DEFAULT are inlined as SQL keywords, not bound")
+        }
         DbValue::Bool(b) => query.bind(*b),
         DbValue::Int(i) => query.bind(*i),
         DbValue::Float(f) => query.bind(*f),
@@ -88,8 +90,8 @@ fn build_assignments<'a>(
     let mut fragments = Vec::with_capacity(values.len());
     let mut binds = Vec::new();
     for (col, val) in values {
-        if matches!(val, DbValue::Null) {
-            fragments.push(format!("{} = NULL", quote_ident(col)));
+        if let Some(keyword) = val.inline_keyword() {
+            fragments.push(format!("{} = {keyword}", quote_ident(col)));
         } else {
             fragments.push(format!(
                 "{} = ${}{}",
@@ -117,8 +119,8 @@ pub async fn insert_row(
     let mut idx = 1;
     for (col, val) in values {
         columns.push(quote_ident(col));
-        if matches!(val, DbValue::Null) {
-            placeholders.push("NULL".to_string());
+        if let Some(keyword) = val.inline_keyword() {
+            placeholders.push(keyword.to_string());
         } else {
             placeholders.push(format!("${}{}", idx, cast_suffix(val, col, &types)));
             idx += 1;

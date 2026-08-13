@@ -3,6 +3,8 @@ import type { ColumnInfo, DbValue } from "../../bindings";
 import { KeyIcon } from "../ui/icons";
 import type { FkMap } from "../../stores/detailsStore";
 import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
+import { EnumField } from "./EnumField";
+import { TableDetailsPanel } from "./TableDetailsPanel";
 
 interface RowDetailsPanelProps {
   width: number;
@@ -21,6 +23,8 @@ function display(value: DbValue | undefined): string {
   switch (value.type) {
     case "Null":
       return "";
+    case "Default":
+      return "DEFAULT";
     case "Bool":
       return value.value ? "true" : "false";
     case "Int":
@@ -107,18 +111,22 @@ export function RowDetailsPanel({
     return edits.get(`${edit.connectionId}:${edit.table}:${pkKey}:${column}`)?.newValue;
   }
 
-  function commitField(column: string, text: string) {
+  function commitValue(column: string, newValue: DbValue) {
     if (!edit || !row) return;
-    const original = row[column];
     setEdit({
       connectionId: edit.connectionId,
       table: edit.table,
       schema: edit.schema,
       pk,
       column,
-      oldValue: original ?? { type: "Null" },
-      newValue: parseEdited(original, text),
+      oldValue: row[column] ?? { type: "Null" },
+      newValue,
     });
+  }
+
+  function commitField(column: string, text: string) {
+    if (!row) return;
+    commitValue(column, parseEdited(row[column], text));
   }
 
   const fieldBase =
@@ -140,10 +148,20 @@ export function RowDetailsPanel({
         </button>
       </div>
 
+      {/* With no row picked, describe the table rather than showing an empty pane. */}
       {!row ? (
-        <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-neutral-600">
-          No row selected
-        </div>
+        edit ? (
+          <TableDetailsPanel
+            connectionId={edit.connectionId}
+            schema={edit.schema}
+            table={edit.table}
+            columnInfos={columnInfos}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-neutral-600">
+            No table open
+          </div>
+        )
       ) : (
         <>
           <div className="shrink-0 px-3 py-2">
@@ -185,7 +203,17 @@ export function RowDetailsPanel({
                     </span>
                   </div>
 
-                  {linkable ? (
+                  {info && info.enumValues.length > 0 ? (
+                    <EnumField
+                      value={value}
+                      options={info.enumValues}
+                      nullable={info.nullable}
+                      hasDefault={info.defaultValue != null}
+                      dirty={dirty}
+                      disabled={!canEdit}
+                      onChange={(next) => commitValue(name, next)}
+                    />
+                  ) : linkable ? (
                     <div className="flex gap-1">
                       {editable ? (
                         <input

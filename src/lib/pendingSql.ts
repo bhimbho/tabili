@@ -36,6 +36,8 @@ function displayText(value: DbValue): string {
   switch (value.type) {
     case "Null":
       return "";
+    case "Default":
+      return "DEFAULT";
     case "Bool":
     case "Int":
     case "Float":
@@ -55,6 +57,9 @@ export function sqlLiteral(value: DbValue): string {
   switch (value.type) {
     case "Null":
       return "NULL";
+    // Emitted as a bare keyword so the preview matches the statement that runs.
+    case "Default":
+      return "DEFAULT";
     case "Bool":
       return value.value ? "true" : "false";
     case "Int":

@@ -39,6 +39,8 @@ function displayValue(value: DbValue | undefined): string {
   switch (value.type) {
     case "Null":
       return "";
+    case "Default":
+      return "DEFAULT";
     case "Bool":
       return value.value ? "true" : "false";
     case "Int":

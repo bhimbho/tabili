@@ -91,6 +91,47 @@ pub async fn list_functions(pool: &MySqlPool, schema: &str) -> Result<Vec<Functi
         .collect())
 }
 
+/// MySQL has no catalog of enum labels — they're embedded in COLUMN_TYPE as
+/// `enum('a','b')` (or `set('a','b')`), so the labels have to be parsed back out.
+/// Quotes inside a label are escaped by doubling, matching MySQL's own output.
+fn parse_enum_labels(column_type: &str) -> Vec<String> {
+    let lower = column_type.to_ascii_lowercase();
+    if !lower.starts_with("enum(") && !lower.starts_with("set(") {
+        return Vec::new();
+    }
+    let Some(open) = column_type.find('(') else { return Vec::new() };
+    let Some(close) = column_type.rfind(')') else { return Vec::new() };
+    if close <= open {
+        return Vec::new();
+    }
+    let body: Vec<char> = column_type[open + 1..close].chars().collect();
+
+    let mut labels = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    let mut i = 0;
+    while i < body.len() {
+        let c = body[i];
+        if in_quotes {
+            if c == '\'' {
+                if body.get(i + 1) == Some(&'\'') {
+                    current.push('\'');
+                    i += 2;
+                    continue;
+                }
+                in_quotes = false;
+                labels.push(std::mem::take(&mut current));
+            } else {
+                current.push(c);
+            }
+        } else if c == '\'' {
+            in_quotes = true;
+        }
+        i += 1;
+    }
+    labels
+}
+
 pub async fn get_columns(pool: &MySqlPool, schema: &str, table: &str) -> Result<Vec<ColumnInfo>, DbError> {
     let rows = sqlx::query(
         "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY \
@@ -105,12 +146,16 @@ pub async fn get_columns(pool: &MySqlPool, schema: &str, table: &str) -> Result<
 
     Ok(rows
         .into_iter()
-        .map(|row| ColumnInfo {
-            name: row.get::<String, _>("COLUMN_NAME"),
-            data_type: row.get::<String, _>("COLUMN_TYPE"),
-            nullable: row.get::<String, _>("IS_NULLABLE") == "YES",
-            is_primary_key: row.get::<String, _>("COLUMN_KEY") == "PRI",
-            default_value: row.try_get::<String, _>("COLUMN_DEFAULT").ok(),
+        .map(|row| {
+            let column_type = row.get::<String, _>("COLUMN_TYPE");
+            ColumnInfo {
+                name: row.get::<String, _>("COLUMN_NAME"),
+                nullable: row.get::<String, _>("IS_NULLABLE") == "YES",
+                is_primary_key: row.get::<String, _>("COLUMN_KEY") == "PRI",
+                default_value: row.try_get::<String, _>("COLUMN_DEFAULT").ok(),
+                enum_values: parse_enum_labels(&column_type),
+                data_type: column_type,
+            }
         })
         .collect())
 }
@@ -215,4 +260,43 @@ pub async fn estimated_row_count(pool: &MySqlPool, schema: &str, table: &str) ->
     .await
     .map_err(|e| DbError::Query(e.to_string()))?;
     Ok(row.and_then(|r| r.try_get::<i64, _>("TABLE_ROWS").ok()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_enum_labels;
+
+    #[test]
+    fn parses_enum_labels() {
+        assert_eq!(
+            parse_enum_labels("enum('PENDING','ACTIVE','COMPLETED')"),
+            vec!["PENDING", "ACTIVE", "COMPLETED"]
+        );
+    }
+
+    #[test]
+    fn parses_set_labels() {
+        assert_eq!(parse_enum_labels("set('a','b')"), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn handles_escaped_quotes_and_separators_in_labels() {
+        // MySQL doubles an embedded quote, and a label may contain a comma.
+        assert_eq!(
+            parse_enum_labels("enum('it''s','a,b')"),
+            vec!["it's", "a,b"]
+        );
+    }
+
+    #[test]
+    fn non_enum_types_yield_nothing() {
+        assert!(parse_enum_labels("varchar(255)").is_empty());
+        assert!(parse_enum_labels("int unsigned").is_empty());
+        assert!(parse_enum_labels("").is_empty());
+    }
+
+    #[test]
+    fn empty_enum_body_is_not_a_panic() {
+        assert!(parse_enum_labels("enum()").is_empty());
+    }
 }
