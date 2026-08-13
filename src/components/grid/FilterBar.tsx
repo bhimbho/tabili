@@ -97,7 +97,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
 
   if (drafts.length === 0) {
     return (
-      <div className="shrink-0 border-b border-neutral-800 bg-neutral-900/60 px-3 py-1.5">
+      <div className="shrink-0 border-b border-black/40 bg-black/15 px-3 py-1.5">
         <button
           onClick={() => onChange([newDraft(columns)])}
           disabled={columns.length === 0}
@@ -111,7 +111,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
   }
 
   return (
-    <div className="shrink-0 border-b border-neutral-800 bg-neutral-900/60 px-3 py-2">
+    <div className="shrink-0 border-b border-black/40 bg-black/15 px-3 py-2">
       {/* One filter per row, stacked, so many filters stay readable. */}
       <div className="space-y-1.5">
         {drafts.map((d, i) => (

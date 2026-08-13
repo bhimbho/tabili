@@ -56,6 +56,7 @@ pub trait DatabaseDriver: Send + Sync {
     async fn list_schemas(&self, database: Option<&str>) -> Result<Vec<SchemaInfo>, DbError>;
     async fn list_tables(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError>;
     async fn list_views(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError>;
+    async fn list_functions(&self, schema: &SchemaRef) -> Result<Vec<FunctionInfo>, DbError>;
     async fn get_columns(&self, table: &TableRef) -> Result<Vec<ColumnInfo>, DbError>;
     async fn get_indexes(&self, table: &TableRef) -> Result<Vec<IndexInfo>, DbError>;
     async fn get_constraints(&self, table: &TableRef) -> Result<Vec<ConstraintInfo>, DbError>;

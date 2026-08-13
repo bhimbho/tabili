@@ -41,6 +41,16 @@ export function ViewIcon({ className = "h-3.5 w-3.5", style }: IconProps) {
   );
 }
 
+export function FunctionIcon({ className = "h-3.5 w-3.5", style }: IconProps) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.3}>
+      <path d="M6.5 13V5.5A2 2 0 018.5 3.5h.75" strokeLinecap="round" />
+      <path d="M4.75 7.25h4.5" strokeLinecap="round" />
+      <path d="M11 9.5l2.5 3.5M13.5 9.5L11 13" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function KeyIcon({ className = "h-3 w-3", style }: IconProps) {
   return (
     <svg className={className} style={style} fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.4}>

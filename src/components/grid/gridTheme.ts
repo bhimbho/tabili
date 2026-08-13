@@ -8,19 +8,19 @@ import type { Theme } from "@glideapps/glide-data-grid";
 export const darkGridTheme: Partial<Theme> = {
   accentColor: "#6366f1",
   accentFg: "#ffffff",
-  accentLight: "rgba(99, 102, 241, 0.22)",
+  accentLight: "rgba(99, 102, 241, 0.20)",
 
-  textDark: "#e5e5e5",
+  textDark: "#ededed",
   textMedium: "#a3a3a3",
   textLight: "#737373",
   textBubble: "#e5e5e5",
 
-  bgCell: "#171717",
-  bgCellMedium: "#1c1c1c",
+  bgCell: "#141416",
+  bgCellMedium: "#181819",
 
-  bgHeader: "#1f1f1f",
-  bgHeaderHasFocus: "#2a2a2a",
-  bgHeaderHovered: "#262626",
+  bgHeader: "#202023",
+  bgHeaderHasFocus: "#2c2c31",
+  bgHeaderHovered: "#28282c",
   textHeader: "#d4d4d4",
   textGroupHeader: "#a3a3a3",
   textHeaderSelected: "#ffffff",
@@ -32,8 +32,8 @@ export const darkGridTheme: Partial<Theme> = {
   bgBubbleSelected: "#333333",
   bgSearchResult: "rgba(245, 158, 11, 0.18)",
 
-  borderColor: "rgba(255, 255, 255, 0.08)",
-  horizontalBorderColor: "rgba(255, 255, 255, 0.05)",
+  borderColor: "rgba(255, 255, 255, 0.075)",
+  horizontalBorderColor: "rgba(255, 255, 255, 0.045)",
   drilldownBorder: "rgba(255, 255, 255, 0.12)",
 
   linkColor: "#818cf8",

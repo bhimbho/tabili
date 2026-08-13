@@ -17,7 +17,7 @@ export function AppShell({ appVersion, children }: AppShellProps) {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
 
-        <div className="flex min-w-0 flex-1 flex-col bg-neutral-900">
+        <div className="surface-gradient flex min-w-0 flex-1 flex-col bg-[#151517]">
           <TopBar />
           <TabBar />
           <main className="min-h-0 flex-1 overflow-auto">{children}</main>

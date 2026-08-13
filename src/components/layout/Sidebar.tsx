@@ -17,7 +17,7 @@ export function Sidebar() {
     <>
       <aside
         style={{ width: sidebarWidth }}
-        className="flex shrink-0 border-r border-black/30 bg-neutral-900/40 text-neutral-300"
+        className="surface-gradient flex shrink-0 border-r border-black/50 bg-neutral-900/30 text-neutral-300"
       >
         <ConnectionRail onNewConnection={() => setDialogOpen(true)} />
         <ObjectPanel />

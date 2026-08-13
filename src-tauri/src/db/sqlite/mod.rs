@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::db::{
     filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
     DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
-    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo,
+    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo, FunctionInfo,
 };
 use introspect::quote_ident;
 
@@ -68,6 +68,10 @@ impl DatabaseDriver for SqliteDriver {
     }
     async fn list_views(&self, _schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
         introspect::list_views(&self.pool).await
+    }
+    async fn list_functions(&self, _schema: &SchemaRef) -> Result<Vec<FunctionInfo>, DbError> {
+        // SQLite has no catalog of user-defined functions.
+        Ok(vec![])
     }
     async fn get_columns(&self, table: &TableRef) -> Result<Vec<ColumnInfo>, DbError> {
         introspect::get_columns(&self.pool, &table.table).await

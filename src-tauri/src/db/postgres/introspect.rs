@@ -1,7 +1,7 @@
 use sqlx::{PgPool, Row};
 
 use crate::db::error::DbError;
-use crate::db::types::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TriggerInfo};
+use crate::db::types::{ColumnInfo, ForeignKeyInfo, FunctionInfo, IndexInfo, TableInfo, TriggerInfo};
 
 /// Double-embedded quotes to safely inline an identifier where sqlx can't bind
 /// one (schema/table names in FROM clauses don't accept bind params).
@@ -61,6 +61,35 @@ pub async fn list_tables(pool: &PgPool, schema: &str) -> Result<Vec<TableInfo>, 
 
 pub async fn list_views(pool: &PgPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
     list_by_type(pool, schema, "VIEW", true).await
+}
+
+pub async fn list_functions(pool: &PgPool, schema: &str) -> Result<Vec<FunctionInfo>, DbError> {
+    let rows = sqlx::query(
+        // prokind filters out aggregates and window functions, which aren't
+        // callable in the way the sidebar implies.
+        "SELECT p.proname AS name, \
+                pg_get_function_identity_arguments(p.oid) AS arguments, \
+                pg_get_function_result(p.oid) AS returns, \
+                CASE p.prokind WHEN 'p' THEN 'procedure' ELSE 'function' END AS kind \
+         FROM pg_proc p \
+         JOIN pg_namespace n ON n.oid = p.pronamespace \
+         WHERE n.nspname = $1 AND p.prokind IN ('f', 'p') \
+         ORDER BY p.proname",
+    )
+    .bind(schema)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| DbError::Query(e.to_string()))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| FunctionInfo {
+            name: row.get::<String, _>("name"),
+            arguments: row.try_get::<String, _>("arguments").unwrap_or_default(),
+            returns: row.try_get::<String, _>("returns").unwrap_or_default(),
+            kind: row.get::<String, _>("kind"),
+        })
+        .collect())
 }
 
 pub async fn get_columns(pool: &PgPool, schema: &str, table: &str) -> Result<Vec<ColumnInfo>, DbError> {

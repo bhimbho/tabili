@@ -64,6 +64,11 @@ export function DetailsPane() {
         foreignKeys={context.foreignKeys}
         onFollowForeignKey={followForeignKey}
         onClose={() => setDetailsVisible(false)}
+        edit={{
+          connectionId: context.connectionId,
+          schema: context.schema,
+          table: context.table,
+        }}
       />
     </>
   );

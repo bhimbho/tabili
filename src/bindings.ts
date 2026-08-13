@@ -33,6 +33,7 @@ export const commands = {
 	listSchemas: (connectionId: string) => typedError<SchemaInfo[], AppError>(__TAURI_INVOKE("list_schemas", { connectionId })),
 	listTables: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema })),
 	listViews: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema })),
+	listFunctions: (connectionId: string, schema: string | null) => typedError<FunctionInfo[], AppError>(__TAURI_INVOKE("list_functions", { connectionId, schema })),
 	getColumns: (connectionId: string, schema: string | null, table: string) => typedError<ColumnInfo[], AppError>(__TAURI_INVOKE("get_columns", { connectionId, schema, table })),
 	getIndexes: (connectionId: string, schema: string | null, table: string) => typedError<IndexInfo[], AppError>(__TAURI_INVOKE("get_indexes", { connectionId, schema, table })),
 	getForeignKeys: (connectionId: string, schema: string | null, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, schema, table })),
@@ -128,6 +129,15 @@ export type ForeignKeyInfo = {
 	columns: string[],
 	referencedTable: string,
 	referencedColumns: string[],
+};
+
+export type FunctionInfo = {
+	name: string,
+	/**  Rendered argument list, e.g. "uid integer, since timestamptz". */
+	arguments: string,
+	returns: string,
+	/**  "function" or "procedure". */
+	kind: string,
 };
 
 export type IndexInfo = {
