@@ -14,10 +14,35 @@ pub struct AppStore {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct StatementLogEntry {
+    pub id: String,
+    pub connection_id: String,
+    pub sql: String,
+    pub success: bool,
+    pub error: Option<String>,
+    #[specta(type = specta_typescript::Number)]
+    pub duration_ms: i64,
+    pub executed_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedQuery {
+    pub id: String,
+    pub name: String,
+    pub sql: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct SavedConnectionRecord {
     pub id: String,
     pub name: String,
     pub dialect: SqlDialect,
+    /// Hex accent used across the rail and header. Red conventionally marks
+    /// production so destructive actions are visually obvious.
+    pub color: Option<String>,
     pub host: Option<String>,
     pub port: Option<u16>,
     pub username: Option<String>,
@@ -80,20 +105,146 @@ impl AppStore {
         .execute(&self.pool)
         .await
         .map_err(|e| DbError::Other(e.to_string()))?;
+
+        // Added after the initial release; ignore the error when it already exists
+        // rather than tracking a migration version for a single column.
+        let _ = sqlx::query("ALTER TABLE saved_connections ADD COLUMN color TEXT")
+            .execute(&self.pool)
+            .await;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS statement_log (
+                id TEXT PRIMARY KEY,
+                connection_id TEXT NOT NULL,
+                sql TEXT NOT NULL,
+                success INTEGER NOT NULL,
+                error TEXT,
+                duration_ms INTEGER NOT NULL,
+                executed_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Other(e.to_string()))?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS saved_queries (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                sql TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Other(e.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn log_statement(&self, entry: &StatementLogEntry) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO statement_log (id, connection_id, sql, success, error, duration_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )
+        .bind(&entry.id)
+        .bind(&entry.connection_id)
+        .bind(&entry.sql)
+        .bind(entry.success as i64)
+        .bind(&entry.error)
+        .bind(entry.duration_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Other(e.to_string()))?;
+        // Keep history bounded so the store cannot grow without limit.
+        let _ = sqlx::query(
+            "DELETE FROM statement_log WHERE id NOT IN
+             (SELECT id FROM statement_log ORDER BY executed_at DESC, rowid DESC LIMIT 2000)",
+        )
+        .execute(&self.pool)
+        .await;
+        Ok(())
+    }
+
+    pub async fn list_statement_log(&self, limit: u32) -> Result<Vec<StatementLogEntry>, DbError> {
+        let rows = sqlx::query(
+            "SELECT * FROM statement_log ORDER BY executed_at DESC, rowid DESC LIMIT ?1",
+        )
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Other(e.to_string()))?;
+        Ok(rows
+            .into_iter()
+            .map(|r| StatementLogEntry {
+                id: r.get("id"),
+                connection_id: r.get("connection_id"),
+                sql: r.get("sql"),
+                success: r.get::<i64, _>("success") != 0,
+                error: r.try_get("error").ok(),
+                duration_ms: r.get("duration_ms"),
+                executed_at: r.get("executed_at"),
+            })
+            .collect())
+    }
+
+    pub async fn clear_statement_log(&self) -> Result<(), DbError> {
+        sqlx::query("DELETE FROM statement_log")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Other(e.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn save_query(&self, q: &SavedQuery) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO saved_queries (id, name, sql) VALUES (?1, ?2, ?3)
+             ON CONFLICT(id) DO UPDATE SET name = excluded.name, sql = excluded.sql",
+        )
+        .bind(&q.id)
+        .bind(&q.name)
+        .bind(&q.sql)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Other(e.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn list_saved_queries(&self) -> Result<Vec<SavedQuery>, DbError> {
+        let rows = sqlx::query("SELECT * FROM saved_queries ORDER BY created_at DESC")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Other(e.to_string()))?;
+        Ok(rows
+            .into_iter()
+            .map(|r| SavedQuery {
+                id: r.get("id"),
+                name: r.get("name"),
+                sql: r.get("sql"),
+                created_at: r.get("created_at"),
+            })
+            .collect())
+    }
+
+    pub async fn delete_saved_query(&self, id: &str) -> Result<(), DbError> {
+        sqlx::query("DELETE FROM saved_queries WHERE id = ?1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Other(e.to_string()))?;
         Ok(())
     }
 
     pub async fn upsert(&self, record: &SavedConnectionRecord) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO saved_connections
-                (id, name, dialect, host, port, username, database, ssl_mode, ssl_key_path, ssl_cert_path, ssl_ca_path, file_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                (id, name, dialect, host, port, username, database, ssl_mode, ssl_key_path, ssl_cert_path, ssl_ca_path, file_path, color)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name, dialect = excluded.dialect, host = excluded.host,
                 port = excluded.port, username = excluded.username, database = excluded.database,
                 ssl_mode = excluded.ssl_mode, ssl_key_path = excluded.ssl_key_path,
                 ssl_cert_path = excluded.ssl_cert_path, ssl_ca_path = excluded.ssl_ca_path,
-                file_path = excluded.file_path",
+                file_path = excluded.file_path, color = excluded.color",
         )
         .bind(&record.id)
         .bind(&record.name)
@@ -107,6 +258,7 @@ impl AppStore {
         .bind(&record.ssl_cert_path)
         .bind(&record.ssl_ca_path)
         .bind(&record.file_path)
+        .bind(&record.color)
         .execute(&self.pool)
         .await
         .map_err(|e| DbError::Other(e.to_string()))?;
@@ -125,6 +277,7 @@ impl AppStore {
                 id: row.get("id"),
                 name: row.get("name"),
                 dialect: dialect_from_str(row.get::<String, _>("dialect").as_str()),
+            color: row.try_get("color").ok(),
                 host: row.try_get("host").ok(),
                 port: row.try_get::<i64, _>("port").ok().map(|p| p as u16),
                 username: row.try_get("username").ok(),
@@ -149,6 +302,7 @@ impl AppStore {
             id: row.get("id"),
             name: row.get("name"),
             dialect: dialect_from_str(row.get::<String, _>("dialect").as_str()),
+            color: row.try_get("color").ok(),
             host: row.try_get("host").ok(),
             port: row.try_get::<i64, _>("port").ok().map(|p| p as u16),
             username: row.try_get("username").ok(),

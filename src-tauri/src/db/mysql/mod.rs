@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::db::{
     ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError, DbValue,
     FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage, SchemaInfo,
-    SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo,
+    SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo,
 };
 
 /// MySQL/MariaDB driver — implemented in full as part of the M2 milestone (see project plan).
@@ -69,6 +69,10 @@ impl DatabaseDriver for MySqlDriver {
         Ok(())
     }
 
+    async fn server_info(&self) -> Result<ServerInfo, DbError> {
+        Err(DbError::Unsupported("mysql driver not yet implemented".into()))
+    }
+
     async fn list_databases(&self) -> Result<Vec<DatabaseInfo>, DbError> {
         Err(DbError::Unsupported("M2: mysql driver not yet implemented".into()))
     }
@@ -120,7 +124,7 @@ impl DatabaseDriver for MySqlDriver {
         &self,
         _table: &TableRef,
         _values: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError> {
+    ) -> Result<String, DbError> {
         Err(DbError::Unsupported("M2: mysql driver not yet implemented".into()))
     }
     async fn update_row(
@@ -128,14 +132,14 @@ impl DatabaseDriver for MySqlDriver {
         _table: &TableRef,
         _pk: &HashMap<String, DbValue>,
         _changes: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError> {
+    ) -> Result<String, DbError> {
         Err(DbError::Unsupported("M2: mysql driver not yet implemented".into()))
     }
     async fn delete_rows(
         &self,
         _table: &TableRef,
         _pks: &[HashMap<String, DbValue>],
-    ) -> Result<(), DbError> {
+    ) -> Result<Vec<String>, DbError> {
         Err(DbError::Unsupported("M2: mysql driver not yet implemented".into()))
     }
 

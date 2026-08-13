@@ -4,12 +4,13 @@ mod introspect;
 mod mutate;
 
 use async_trait::async_trait;
+use sqlx::Row;
 use std::collections::HashMap;
 
 use crate::db::{
     filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
     DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
-    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo,
+    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo,
 };
 use introspect::quote_ident;
 
@@ -41,6 +42,17 @@ impl DatabaseDriver for SqliteDriver {
     async fn close(&self) -> Result<(), DbError> {
         self.pool.close().await;
         Ok(())
+    }
+
+    async fn server_info(&self) -> Result<ServerInfo, DbError> {
+        let row = sqlx::query("SELECT sqlite_version() AS v")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(ServerInfo {
+            version: format!("SQLite {}", row.get::<String, _>("v")),
+            database: "main".to_string(),
+        })
     }
 
     async fn list_databases(&self) -> Result<Vec<DatabaseInfo>, DbError> {
@@ -102,7 +114,7 @@ impl DatabaseDriver for SqliteDriver {
 
         // Fetch one extra row to cheaply determine has_more without a separate COUNT(*).
         let fetch_limit = opts.limit as i64 + 1;
-        let mut q = sqlx::query(sqlx::AssertSqlSafe(query));
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(query.clone()));
         for value in &where_clause.binds {
             q = mutate::bind_value(q, value)?;
         }
@@ -127,7 +139,7 @@ impl DatabaseDriver for SqliteDriver {
             out_rows.push(map);
         }
 
-        Ok(RowPage { columns, rows: out_rows, has_more })
+        Ok(RowPage { columns, rows: out_rows, has_more, sql: query })
     }
 
     async fn run_query(&self, _sql: &str) -> Result<QueryHandle, DbError> {
@@ -144,7 +156,7 @@ impl DatabaseDriver for SqliteDriver {
         &self,
         table: &TableRef,
         values: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError> {
+    ) -> Result<String, DbError> {
         mutate::insert_row(&self.pool, &table.table, values).await
     }
     async fn update_row(
@@ -152,14 +164,14 @@ impl DatabaseDriver for SqliteDriver {
         table: &TableRef,
         pk: &HashMap<String, DbValue>,
         changes: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError> {
+    ) -> Result<String, DbError> {
         mutate::update_row(&self.pool, &table.table, pk, changes).await
     }
     async fn delete_rows(
         &self,
         table: &TableRef,
         pks: &[HashMap<String, DbValue>],
-    ) -> Result<(), DbError> {
+    ) -> Result<Vec<String>, DbError> {
         mutate::delete_rows(&self.pool, &table.table, pks).await
     }
 

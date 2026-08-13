@@ -6,14 +6,16 @@ import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
+import { friendlyError } from "../../lib/errors";
 import { ChevronIcon, TableIcon, ViewIcon } from "../ui/icons";
+import { HistoryPanel, QueriesPanel } from "./HistoryPanel";
 
 type PanelTab = "items" | "queries" | "history";
 
-const TABS: { key: PanelTab; label: string; enabled: boolean }[] = [
-  { key: "items", label: "Items", enabled: true },
-  { key: "queries", label: "Queries", enabled: false },
-  { key: "history", label: "History", enabled: false },
+const TABS: { key: PanelTab; label: string }[] = [
+  { key: "items", label: "Items" },
+  { key: "queries", label: "Queries" },
+  { key: "history", label: "History" },
 ];
 
 function Group({
@@ -107,13 +109,10 @@ export function ObjectPanel() {
         {TABS.map((t) => (
           <button
             key={t.key}
-            disabled={!t.enabled}
             onClick={() => setTab(t.key)}
-            title={t.enabled ? undefined : "Coming with the SQL editor"}
             className={clsx(
               "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
               tab === t.key ? "bg-white/10 text-neutral-100" : "text-neutral-500 hover:text-neutral-300",
-              !t.enabled && "cursor-not-allowed opacity-40 hover:text-neutral-500",
             )}
           >
             {t.label}
@@ -135,7 +134,7 @@ export function ObjectPanel() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search for item…"
+            placeholder={tab === "items" ? "Search for item…" : `Search ${tab}…`}
             className="w-full rounded-md border border-black/30 bg-black/20 py-1 pl-7 pr-6 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-500 focus:border-neutral-500"
           />
           {search && (
@@ -150,15 +149,18 @@ export function ObjectPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1">
-        {!connected && (
+        {tab === "history" && <HistoryPanel search={search} />}
+        {tab === "queries" && <QueriesPanel search={search} />}
+
+        {tab === "items" && !connected && (
           <p className="px-3 py-2 text-xs text-neutral-600">Not connected. Click its icon to connect.</p>
         )}
-        {connected && isLoading && <p className="px-3 py-2 text-xs text-neutral-500">Loading…</p>}
-        {connected && error && (
-          <p className="px-3 py-2 text-xs text-red-400">{(error as Error).message}</p>
+        {tab === "items" && connected && isLoading && <p className="px-3 py-2 text-xs text-neutral-500">Loading…</p>}
+        {tab === "items" && connected && error && (
+          <p className="px-3 py-2 text-xs text-red-400">{friendlyError(error)}</p>
         )}
 
-        {connected && !isLoading && !error && (
+        {tab === "items" && connected && !isLoading && !error && (
           <>
             <Group title="Tables" count={shownTables.length}>
               {shownTables.map((t) => (
@@ -204,7 +206,7 @@ export function ObjectPanel() {
         )}
       </div>
 
-      {connected && schemas && schemas.length > 0 && (
+      {tab === "items" && connected && schemas && schemas.length > 0 && (
         <div className="shrink-0 border-t border-black/30 p-2">
           <Select
             value={schema ?? schemas[0]?.name ?? ""}

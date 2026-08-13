@@ -8,10 +8,12 @@ use sqlx::postgres::PgSslMode;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use sqlx::Row;
+
 use crate::db::{
     filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
     DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
-    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo,
+    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo,
 };
 use introspect::{quote_ident, quote_qualified};
 
@@ -70,6 +72,19 @@ impl DatabaseDriver for PostgresDriver {
     async fn close(&self) -> Result<(), DbError> {
         self.pool.close().await;
         Ok(())
+    }
+
+    async fn server_info(&self) -> Result<ServerInfo, DbError> {
+        let row = sqlx::query(
+            "SELECT current_setting('server_version') AS v, current_database() AS d",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(ServerInfo {
+            version: format!("PostgreSQL {}", row.get::<String, _>("v")),
+            database: row.get::<String, _>("d"),
+        })
     }
 
     async fn list_databases(&self) -> Result<Vec<DatabaseInfo>, DbError> {
@@ -148,7 +163,7 @@ impl DatabaseDriver for PostgresDriver {
         );
 
         let fetch_limit = opts.limit as i64 + 1;
-        let mut q = sqlx::query(sqlx::AssertSqlSafe(query));
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(query.clone()));
         for value in &where_clause.binds {
             q = mutate::bind_value(q, value)?;
         }
@@ -173,7 +188,7 @@ impl DatabaseDriver for PostgresDriver {
             out_rows.push(map);
         }
 
-        Ok(RowPage { columns, rows: out_rows, has_more })
+        Ok(RowPage { columns, rows: out_rows, has_more, sql: query })
     }
 
     async fn run_query(&self, _sql: &str) -> Result<QueryHandle, DbError> {
@@ -190,7 +205,7 @@ impl DatabaseDriver for PostgresDriver {
         &self,
         table: &TableRef,
         values: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError> {
+    ) -> Result<String, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
         mutate::insert_row(&self.pool, schema, &table.table, values).await
     }
@@ -199,7 +214,7 @@ impl DatabaseDriver for PostgresDriver {
         table: &TableRef,
         pk: &HashMap<String, DbValue>,
         changes: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError> {
+    ) -> Result<String, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
         mutate::update_row(&self.pool, schema, &table.table, pk, changes).await
     }
@@ -207,7 +222,7 @@ impl DatabaseDriver for PostgresDriver {
         &self,
         table: &TableRef,
         pks: &[HashMap<String, DbValue>],
-    ) -> Result<(), DbError> {
+    ) -> Result<Vec<String>, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
         mutate::delete_rows(&self.pool, schema, &table.table, pks).await
     }

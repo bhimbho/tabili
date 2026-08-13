@@ -3,9 +3,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { commands } from "../../bindings";
-import { useConnectionsStore, type Dialect } from "../../stores/connectionsStore";
+import { useConnectionsStore, CONNECTION_COLORS, type Dialect } from "../../stores/connectionsStore";
 import { DialectBadge } from "./DialectBadge";
 import { Select } from "../ui/Select";
+import { friendlyError } from "../../lib/errors";
 
 const SSL_MODES = [
   { value: "disable", label: "Disable" },
@@ -75,6 +76,7 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [database, setDatabase] = useState("");
+  const [color, setColor] = useState<string>(CONNECTION_COLORS[0].value);
   const [sslMode, setSslMode] = useState("prefer");
   const [sslKeyPath, setSslKeyPath] = useState("");
   const [sslCertPath, setSslCertPath] = useState("");
@@ -92,6 +94,7 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
     setUsername("");
     setPassword("");
     setDatabase("");
+    setColor(CONNECTION_COLORS[0].value);
     setSslMode("prefer");
     setSslKeyPath("");
     setSslCertPath("");
@@ -142,6 +145,7 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
     const result = await commands.openConnection({
       dialect,
       name: name || (isSqlite ? (filePath.split("/").pop() ?? "New connection") : `${username}@${host}`),
+      color,
       host: isSqlite ? null : host,
       port: isSqlite ? null : Number(port) || null,
       username: isSqlite ? null : username,
@@ -156,13 +160,14 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
 
     setConnecting(false);
     if (result.status === "error") {
-      setError(result.error.message);
+      setError(friendlyError(result.error.message));
       return;
     }
     addConnection({
       id: result.data.connectionId,
       name: result.data.displayName,
       dialect: result.data.dialect,
+      color: result.data.color,
     });
     queryClient.invalidateQueries({ queryKey: ["saved-connections"] });
     handleOpenChange(false);
@@ -214,6 +219,28 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
                     placeholder="My connection"
                     className={inputClass}
                   />
+                </Field>
+
+                <Field label="Colour">
+                  <div className="flex items-center gap-1.5">
+                    {CONNECTION_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setColor(c.value)}
+                        title={c.label}
+                        className={`h-6 w-6 rounded-full transition-transform ${
+                          color === c.value ? "scale-110 ring-2 ring-white/70" : "hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: c.value }}
+                      />
+                    ))}
+                  </div>
+                  {color === "#ef4444" && (
+                    <p className="mt-1.5 text-[11px] text-red-400">
+                      Marked as production — the header turns red so destructive edits are obvious.
+                    </p>
+                  )}
                 </Field>
 
                 {dialect === "Sqlite" ? (

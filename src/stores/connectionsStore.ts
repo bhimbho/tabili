@@ -6,17 +6,30 @@ export interface SavedConnection {
   id: string;
   name: string;
   dialect: Dialect;
+  color: string | null;
   /** Deterministic accent used across sidebar/tabs/status bar to identify this connection at a glance. */
   accentColor: string;
   isConnected: boolean;
 }
 
-const ACCENTS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
+/** Offered in the connection dialog; red conventionally marks production. */
+export const CONNECTION_COLORS = [
+  { value: "#6366f1", label: "Indigo" },
+  { value: "#0ea5e9", label: "Blue" },
+  { value: "#10b981", label: "Green" },
+  { value: "#f59e0b", label: "Amber" },
+  { value: "#a855f7", label: "Purple" },
+  { value: "#6b7280", label: "Grey" },
+  { value: "#ef4444", label: "Red — production" },
+];
 
-function accentFor(id: string): string {
+const FALLBACK = "#6366f1";
+
+function accentFor(id: string, color?: string | null): string {
+  if (color) return color;
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  return ACCENTS[hash % ACCENTS.length];
+  return CONNECTION_COLORS[hash % (CONNECTION_COLORS.length - 1)]?.value ?? FALLBACK;
 }
 
 interface ConnectionsState {
@@ -44,7 +57,11 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
     set((state) => ({
       connections: conns.map((c) => {
         const existing = state.connections.find((e) => e.id === c.id);
-        return { ...c, accentColor: accentFor(c.id), isConnected: existing?.isConnected ?? false };
+        return {
+          ...c,
+          accentColor: accentFor(c.id, c.color),
+          isConnected: existing?.isConnected ?? false,
+        };
       }),
     })),
 
@@ -52,7 +69,10 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
     set((state) => {
       const withoutExisting = state.connections.filter((c) => c.id !== conn.id);
       return {
-        connections: [{ ...conn, accentColor: accentFor(conn.id), isConnected: true }, ...withoutExisting],
+        connections: [
+          { ...conn, accentColor: accentFor(conn.id, conn.color), isConnected: true },
+          ...withoutExisting,
+        ],
         activeConnectionId: conn.id,
       };
     }),

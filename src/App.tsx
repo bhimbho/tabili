@@ -5,6 +5,7 @@ import { commands } from "./bindings";
 import { useTabsStore } from "./stores/tabsStore";
 import { useConnectionsStore } from "./stores/connectionsStore";
 import { useSavedConnections } from "./hooks/useConnections";
+import { useShortcuts } from "./hooks/useShortcuts";
 
 function MainPane() {
   const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
@@ -31,13 +32,17 @@ function App() {
   const [appVersion, setAppVersion] = useState<string>();
   const { data: saved } = useSavedConnections();
   const setConnections = useConnectionsStore((s) => s.setConnections);
+  useShortcuts();
 
   useEffect(() => {
     commands.appInfo().then((info) => setAppVersion(info.version));
   }, []);
 
   useEffect(() => {
-    if (saved) setConnections(saved.map((c) => ({ id: c.id, name: c.name, dialect: c.dialect })));
+    if (saved)
+      setConnections(
+        saved.map((c) => ({ id: c.id, name: c.name, dialect: c.dialect, color: c.color })),
+      );
   }, [saved, setConnections]);
 
   return (

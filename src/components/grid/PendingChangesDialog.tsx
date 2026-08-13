@@ -1,95 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { commands } from "../../bindings";
-import type { DbValue } from "../../bindings";
-import { useChangesStore, pkKeyOf, type PendingDelete, type PendingEdit, type PendingInsert } from "../../stores/changesStore";
+import { useChangesStore } from "../../stores/changesStore";
+import { commitChanges } from "../../lib/commitChanges";
+import { deleteSql, editSql, groupEdits, insertSql } from "../../lib/pendingSql";
 
 interface PendingChangesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function sqlLiteral(value: DbValue): string {
-  switch (value.type) {
-    case "Null":
-      return "NULL";
-    case "Bool":
-      return value.value ? "true" : "false";
-    case "Int":
-    case "Float":
-      return String(value.value);
-    case "Decimal":
-      return value.value;
-    default:
-      return `'${displayText(value).replace(/'/g, "''")}'`;
-  }
-}
-
-function displayText(value: DbValue): string {
-  switch (value.type) {
-    case "Null":
-      return "";
-    case "Bool":
-      return String(value.value);
-    case "Int":
-    case "Float":
-      return String(value.value);
-    case "Decimal":
-    case "Text":
-    case "DateTime":
-    case "Uuid":
-      return value.value;
-    default:
-      return JSON.stringify(value);
-  }
-}
-
-interface EditGroup {
-  connectionId: string;
-  table: string;
-  schema: string | null;
-  pkKey: string;
-  pk: Record<string, DbValue>;
-  changes: Record<string, DbValue>;
-}
-
-function groupEdits(edits: PendingEdit[]): EditGroup[] {
-  const groups = new Map<string, EditGroup>();
-  for (const edit of edits) {
-    const groupKey = `${edit.connectionId}:${edit.table}:${edit.pkKey}`;
-    const existing = groups.get(groupKey);
-    if (existing) {
-      existing.changes[edit.column] = edit.newValue;
-    } else {
-      groups.set(groupKey, {
-        connectionId: edit.connectionId,
-        table: edit.table,
-        schema: edit.schema,
-        pkKey: edit.pkKey,
-        pk: edit.pk,
-        changes: { [edit.column]: edit.newValue },
-      });
-    }
-  }
-  return Array.from(groups.values());
-}
-
-function editSql(g: EditGroup): string {
-  const set = Object.entries(g.changes).map(([c, v]) => `${c} = ${sqlLiteral(v)}`).join(", ");
-  const where = Object.entries(g.pk).map(([c, v]) => `${c} = ${sqlLiteral(v)}`).join(" AND ");
-  return `UPDATE ${g.table} SET ${set} WHERE ${where};`;
-}
-
-function insertSql(i: PendingInsert): string {
-  const cols = Object.keys(i.values);
-  const vals = cols.map((c) => sqlLiteral(i.values[c]));
-  return `INSERT INTO ${i.table} (${cols.join(", ")}) VALUES (${vals.join(", ")});`;
-}
-
-function deleteSql(d: PendingDelete): string {
-  const where = Object.entries(d.pk).map(([c, v]) => `${c} = ${sqlLiteral(v)}`).join(" AND ");
-  return `DELETE FROM ${d.table} WHERE ${where};`;
 }
 
 export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialogProps) {
@@ -110,62 +28,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
 
   async function handleCommit() {
     setCommitting(true);
-    const newErrors: string[] = [];
-    const touched = new Set<string>();
-
-    for (const g of editGroups) {
-      const result = await commands.updateRow(g.connectionId, g.schema, g.table, g.pk, g.changes);
-      touched.add(`${g.connectionId}:${g.table}`);
-      if (result.status === "error") {
-        newErrors.push(`UPDATE ${g.table} (${pkKeyOf(g.pk)}): ${result.error.message}`);
-      } else {
-        useChangesStore.setState((s) => {
-          const next = new Map(s.edits);
-          for (const [key, e] of next) {
-            if (e.connectionId === g.connectionId && e.table === g.table && e.pkKey === g.pkKey) next.delete(key);
-          }
-          return { edits: next };
-        });
-      }
-    }
-
-    for (const i of insertList) {
-      const result = await commands.insertRow(i.connectionId, i.schema, i.table, i.values);
-      touched.add(`${i.connectionId}:${i.table}`);
-      if (result.status === "error") {
-        newErrors.push(`INSERT INTO ${i.table}: ${result.error.message}`);
-      } else {
-        useChangesStore.getState().removeInsert(i.tempId);
-      }
-    }
-
-    const deletesByTable = new Map<string, PendingDelete[]>();
-    for (const d of deleteList) {
-      const key = `${d.connectionId}:${d.table}`;
-      deletesByTable.set(key, [...(deletesByTable.get(key) ?? []), d]);
-    }
-    for (const [key, group] of deletesByTable) {
-      const { connectionId, table, schema } = group[0];
-      const result = await commands.deleteRows(connectionId, schema, table, group.map((d) => d.pk));
-      touched.add(key);
-      if (result.status === "error") {
-        newErrors.push(`DELETE FROM ${table}: ${result.error.message}`);
-      } else {
-        useChangesStore.setState((s) => {
-          const next = new Map(s.deletes);
-          for (const d of group) next.delete(`${d.connectionId}:${d.table}:${d.pkKey}`);
-          return { deletes: next };
-        });
-      }
-    }
-
-    for (const key of touched) {
-      const [connectionId] = key.split(":");
-      // Row keys are ["rows", connectionId, schema, table, query]; match on the
-      // connection prefix so every affected schema/query variant refetches.
-      queryClient.invalidateQueries({ queryKey: ["rows", connectionId] });
-    }
-
+    const newErrors = await commitChanges(queryClient);
     setErrors(newErrors);
     setCommitting(false);
     if (newErrors.length === 0) onOpenChange(false);
@@ -186,6 +49,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
             <Dialog.Title className="text-sm font-semibold text-neutral-100">
               Pending Changes {total > 0 ? `(${total})` : ""}
             </Dialog.Title>
+            <span className="text-xs text-neutral-600">⌘S commits without this dialog</span>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -216,7 +80,9 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
             {errors.length > 0 && (
               <div className="mt-3 space-y-1 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2">
                 {errors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-300">{e}</p>
+                  <p key={i} className="text-xs text-red-300">
+                    {e}
+                  </p>
                 ))}
               </div>
             )}
@@ -244,7 +110,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mb-3">
       <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">{title}</p>
@@ -253,9 +119,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function CodeLine({ children }: { children: React.ReactNode }) {
+function CodeLine({ children }: { children: ReactNode }) {
   return (
-    <pre className="overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-xs text-neutral-300">
+    <pre className="selectable overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-xs text-neutral-300">
       {children}
     </pre>
   );

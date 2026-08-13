@@ -48,6 +48,8 @@ pub enum DbKind {
 pub trait DatabaseDriver: Send + Sync {
     fn dialect(&self) -> SqlDialect;
     async fn close(&self) -> Result<(), DbError>;
+    /// Server version string and current database, for the header bar.
+    async fn server_info(&self) -> Result<ServerInfo, DbError>;
 
     // --- schema introspection ---
     async fn list_databases(&self) -> Result<Vec<DatabaseInfo>, DbError>;
@@ -75,18 +77,18 @@ pub trait DatabaseDriver: Send + Sync {
         &self,
         table: &TableRef,
         values: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError>;
+    ) -> Result<String, DbError>;
     async fn update_row(
         &self,
         table: &TableRef,
         pk: &HashMap<String, DbValue>,
         changes: &HashMap<String, DbValue>,
-    ) -> Result<(), DbError>;
+    ) -> Result<String, DbError>;
     async fn delete_rows(
         &self,
         table: &TableRef,
         pks: &[HashMap<String, DbValue>],
-    ) -> Result<(), DbError>;
+    ) -> Result<Vec<String>, DbError>;
 
     // --- DDL: build (dry-run text) then execute separately; UI always previews first ---
     async fn build_create_table_ddl(&self, spec: &TableSpec) -> Result<Vec<String>, DbError>;

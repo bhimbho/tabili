@@ -59,7 +59,7 @@ pub async fn insert_row(
     pool: &SqlitePool,
     table: &str,
     values: &HashMap<String, DbValue>,
-) -> Result<(), DbError> {
+) -> Result<String, DbError> {
     let mut columns = Vec::with_capacity(values.len());
     let mut placeholders = Vec::with_capacity(values.len());
     let mut binds = Vec::new();
@@ -79,7 +79,7 @@ pub async fn insert_row(
         columns.join(", "),
         placeholders.join(", ")
     );
-    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.clone()));
     for val in binds {
         query = bind_value(query, val)?;
     }
@@ -87,7 +87,7 @@ pub async fn insert_row(
         .execute(pool)
         .await
         .map_err(|e| DbError::Query(e.to_string()))?;
-    Ok(())
+    Ok(sql)
 }
 
 pub async fn update_row(
@@ -95,7 +95,7 @@ pub async fn update_row(
     table: &str,
     pk: &HashMap<String, DbValue>,
     changes: &HashMap<String, DbValue>,
-) -> Result<(), DbError> {
+) -> Result<String, DbError> {
     if pk.is_empty() {
         return Err(DbError::NoPrimaryKey);
     }
@@ -109,7 +109,7 @@ pub async fn update_row(
         set_fragments.join(", "),
         where_clause
     );
-    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.clone()));
     for val in set_binds.into_iter().chain(where_binds) {
         query = bind_value(query, val)?;
     }
@@ -117,18 +117,19 @@ pub async fn update_row(
         .execute(pool)
         .await
         .map_err(|e| DbError::Query(e.to_string()))?;
-    Ok(())
+    Ok(sql)
 }
 
 pub async fn delete_rows(
     pool: &SqlitePool,
     table: &str,
     pks: &[HashMap<String, DbValue>],
-) -> Result<(), DbError> {
+) -> Result<Vec<String>, DbError> {
     if pks.iter().any(|pk| pk.is_empty()) {
         return Err(DbError::NoPrimaryKey);
     }
     let mut tx = pool.begin().await.map_err(|e| DbError::Query(e.to_string()))?;
+    let mut executed = Vec::with_capacity(pks.len());
     for pk in pks {
         let (where_fragments, where_binds) = build_assignments(pk);
         let sql = format!(
@@ -136,7 +137,7 @@ pub async fn delete_rows(
             quote_ident(table),
             where_fragments.join(" AND ")
         );
-        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql));
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.clone()));
         for val in where_binds {
             query = bind_value(query, val)?;
         }
@@ -144,7 +145,8 @@ pub async fn delete_rows(
             .execute(&mut *tx)
             .await
             .map_err(|e| DbError::Query(e.to_string()))?;
+        executed.push(sql);
     }
     tx.commit().await.map_err(|e| DbError::Query(e.to_string()))?;
-    Ok(())
+    Ok(executed)
 }

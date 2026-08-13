@@ -13,6 +13,7 @@ use crate::db::{connect_driver, ConnectionConfig, DbError, DbKind, SqlDialect};
 pub struct NewConnectionRequest {
     pub dialect: SqlDialect,
     pub name: String,
+    pub color: Option<String>,
     pub host: Option<String>,
     pub port: Option<u16>,
     pub username: Option<String>,
@@ -32,6 +33,7 @@ pub struct OpenedConnection {
     pub connection_id: String,
     pub dialect: SqlDialect,
     pub display_name: String,
+    pub color: Option<String>,
 }
 
 fn config_from_request(request: &NewConnectionRequest, password: Option<String>) -> ConnectionConfig {
@@ -98,6 +100,7 @@ pub async fn open_connection(
             id: connection_id.clone(),
             name: request.name.clone(),
             dialect: request.dialect,
+            color: request.color.clone(),
             host: request.host.clone(),
             port: request.port,
             username: request.username.clone(),
@@ -121,6 +124,7 @@ pub async fn open_connection(
         connection_id,
         dialect: request.dialect,
         display_name: request.name,
+        color: request.color,
     })
 }
 
@@ -157,6 +161,7 @@ pub async fn connect_saved(
         connection_id: id,
         dialect: record.dialect,
         display_name: record.name,
+        color: record.color,
     })
 }
 

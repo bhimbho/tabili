@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use tauri::State;
 
+use std::time::Instant;
+
+use crate::app_store::{AppStore, StatementLogEntry};
 use crate::connection_registry::ConnectionRegistry;
 use crate::db::error::AppError;
 use crate::db::{ColumnSpec, DatabaseDriver, DbError, TableDiff, TableRef};
@@ -72,9 +75,27 @@ pub async fn preview_drop_column(
 #[specta::specta]
 pub async fn execute_ddl(
     registry: State<'_, ConnectionRegistry>,
+    app_store: State<'_, AppStore>,
     connection_id: String,
     statements: Vec<String>,
 ) -> Result<(), AppError> {
     let driver = resolve(&registry, &connection_id).await?;
-    driver.execute_ddl(&statements).await.map_err(AppError::from)
+    let started = Instant::now();
+    let result = driver.execute_ddl(&statements).await;
+    let error = result.as_ref().err().map(|e| e.to_string());
+    let duration_ms = started.elapsed().as_millis() as i64;
+    for sql in &statements {
+        let _ = app_store
+            .log_statement(&StatementLogEntry {
+                id: uuid::Uuid::new_v4().to_string(),
+                connection_id: connection_id.clone(),
+                sql: sql.clone(),
+                success: error.is_none(),
+                error: error.clone(),
+                duration_ms,
+                executed_at: String::new(),
+            })
+            .await;
+    }
+    result.map_err(AppError::from)
 }

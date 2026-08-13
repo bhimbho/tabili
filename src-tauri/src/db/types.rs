@@ -103,6 +103,13 @@ pub struct ForeignKeyInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct ServerInfo {
+    pub version: String,
+    pub database: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct TriggerInfo {
     pub name: String,
     pub timing: String,
@@ -197,6 +204,9 @@ pub struct RowPage {
     pub columns: Vec<String>,
     pub rows: Vec<HashMap<String, DbValue>>,
     pub has_more: bool,
+    /// The statement actually sent to the server, surfaced in the console so the
+    /// UI never has to guess what it ran.
+    pub sql: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
