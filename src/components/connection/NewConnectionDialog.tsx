@@ -404,7 +404,9 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                     </Field>
 
                     <div className="border-t border-neutral-800 pt-3">
-                      <label className="flex items-center justify-between">
+                      {/* A <label> wrapping a <button> forwards the click to it,
+                          firing the handler twice; the row is a plain div. */}
+                      <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-neutral-300">Over SSH</span>
                         <button
                           type="button"
@@ -415,13 +417,16 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                             sshEnabled ? "bg-indigo-600" : "bg-neutral-700"
                           }`}
                         >
+                          {/* left-0.5 anchors the knob: without an explicit left it
+                              resolves against its static position, which a button
+                              centres, pushing it off the track when switched on. */}
                           <span
-                            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-                              sshEnabled ? "translate-x-4" : "translate-x-0.5"
+                            className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                              sshEnabled ? "translate-x-4" : "translate-x-0"
                             }`}
                           />
                         </button>
-                      </label>
+                      </div>
 
                       {sshEnabled && (
                         <div className="mt-3 space-y-3">
