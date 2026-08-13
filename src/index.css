@@ -36,6 +36,15 @@ textarea,
   -webkit-app-region: drag;
 }
 
+/* Children of a drag region don't receive clicks unless they opt out. */
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] select,
+[data-tauri-drag-region] a,
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Mount point for glide-data-grid's cell-editor overlay (see index.html). */
 #portal {
   position: fixed;
