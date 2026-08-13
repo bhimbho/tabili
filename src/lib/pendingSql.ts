@@ -38,6 +38,8 @@ function displayText(value: DbValue): string {
       return "";
     case "Default":
       return "DEFAULT";
+    case "Now":
+      return "CURRENT_TIMESTAMP";
     case "Bool":
     case "Int":
     case "Float":
@@ -60,6 +62,8 @@ export function sqlLiteral(value: DbValue): string {
     // Emitted as a bare keyword so the preview matches the statement that runs.
     case "Default":
       return "DEFAULT";
+    case "Now":
+      return "CURRENT_TIMESTAMP";
     case "Bool":
       return value.value ? "true" : "false";
     case "Int":

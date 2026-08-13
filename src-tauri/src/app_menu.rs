@@ -238,7 +238,7 @@ pub fn build_menu<R: Runtime>(
         app,
         &[
             on("connection.new", "New…", None),
-            off("connection.edit", "Edit…", None),
+            on("connection.edit", "Edit…", None),
         ],
     )?;
     let conn_open = build_items(

@@ -216,6 +216,112 @@ pub async fn list_saved_connections(
     app_store.list().await.map_err(AppError::from)
 }
 
+/// Saves edits to an existing connection.
+///
+/// Secrets are only touched when the form actually supplies one: an empty
+/// password field means "leave the keychain entry alone", so editing the port
+/// doesn't force the user to retype credentials they can't see.
+///
+/// A live connection is reopened with the new settings, since a pool already
+/// bound to the old host would otherwise keep serving the previous target. The
+/// old pool is only torn down once the replacement is known good.
+#[tauri::command]
+#[specta::specta]
+pub async fn update_connection(
+    registry: State<'_, ConnectionRegistry>,
+    app_store: State<'_, AppStore>,
+    id: String,
+    request: NewConnectionRequest,
+) -> Result<OpenedConnection, AppError> {
+    if app_store.get(&id).await.map_err(AppError::from)?.is_none() {
+        return Err(AppError::from(DbError::Connection(
+            "saved connection not found".into(),
+        )));
+    }
+
+    let record = SavedConnectionRecord {
+        id: id.clone(),
+        name: request.name.clone(),
+        dialect: request.dialect,
+        color: request.color.clone(),
+        host: request.host.clone(),
+        port: request.port,
+        username: request.username.clone(),
+        database: request.database.clone(),
+        ssl_mode: request.ssl_mode.clone(),
+        ssl_key_path: request.ssl_key_path.clone(),
+        ssl_cert_path: request.ssl_cert_path.clone(),
+        ssl_ca_path: request.ssl_ca_path.clone(),
+        file_path: request.file_path.clone(),
+        ssh_enabled: request.ssh_enabled,
+        ssh_host: request.ssh_host.clone(),
+        ssh_port: request.ssh_port,
+        ssh_username: request.ssh_username.clone(),
+        ssh_use_key: request.ssh_use_key,
+        ssh_private_key_path: request.ssh_private_key_path.clone(),
+    };
+
+    for (supplied, save) in [
+        (&request.password, credentials::save_password as fn(&str, &str) -> Result<(), DbError>),
+        (&request.ssh_password, credentials::save_ssh_password),
+        (&request.ssh_private_key_passphrase, credentials::save_ssh_key_passphrase),
+    ] {
+        if let Some(secret) = supplied.as_deref().filter(|s| !s.is_empty()) {
+            save(&id, secret).map_err(AppError::from)?;
+        }
+    }
+
+    let was_connected = registry.get(&id).await.is_some();
+    if was_connected {
+        let password = credentials::get_password(&id).map_err(AppError::from)?;
+        let mut config = config_from_record(&record, password);
+        let ssh_password = credentials::get_ssh_password(&id).map_err(AppError::from)?;
+        let ssh_key_passphrase = credentials::get_ssh_key_passphrase(&id).map_err(AppError::from)?;
+        let tunnel = open_tunnel_if_needed(
+            record.ssh_enabled,
+            record.ssh_host.as_deref(),
+            record.ssh_port,
+            record.ssh_username.as_deref(),
+            ssh_password,
+            record.ssh_use_key,
+            record.ssh_private_key_path.as_deref(),
+            ssh_key_passphrase,
+            &mut config,
+        )
+        .await?;
+
+        let driver = match connect_driver(dialect_kind(record.dialect), &config).await {
+            Ok(driver) => driver,
+            Err(e) => {
+                if let Some(tunnel) = &tunnel {
+                    tunnel.close().await;
+                }
+                // The edit is rejected rather than half-applied: the old pool is
+                // still live and still matches what's on disk.
+                return Err(AppError::from(e));
+            }
+        };
+
+        if let Some(old) = registry.remove(&id).await {
+            let _ = old.close().await;
+        }
+        registry.remove_tunnel(&id).await;
+        if let Some(tunnel) = tunnel {
+            registry.insert_tunnel(id.clone(), tunnel).await;
+        }
+        registry.insert(id.clone(), driver).await;
+    }
+
+    app_store.upsert(&record).await.map_err(AppError::from)?;
+
+    Ok(OpenedConnection {
+        connection_id: id,
+        dialect: record.dialect,
+        display_name: record.name,
+        color: record.color,
+    })
+}
+
 /// Rebuilds the native menu so File ▸ Open Recent matches the saved connections.
 /// Called by the frontend after a connection is added or deleted.
 #[tauri::command]

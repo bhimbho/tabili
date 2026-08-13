@@ -9,6 +9,7 @@ import { create } from "zustand";
  */
 export type AppDialog =
   | "new-connection"
+  | "edit-connection"
   | "export-all"
   | "export-table"
   | "import-csv"
@@ -18,12 +19,18 @@ export type AppDialog =
 
 interface DialogsState {
   dialog: AppDialog;
+  /** Which saved connection "edit-connection" is editing. */
+  editingConnectionId: string | null;
   open: (dialog: Exclude<AppDialog, null>) => void;
+  openEdit: (connectionId: string) => void;
   close: () => void;
 }
 
 export const useDialogsStore = create<DialogsState>((set) => ({
   dialog: null,
-  open: (dialog) => set({ dialog }),
-  close: () => set({ dialog: null }),
+  editingConnectionId: null,
+  open: (dialog) => set({ dialog, editingConnectionId: null }),
+  openEdit: (connectionId) =>
+    set({ dialog: "edit-connection", editingConnectionId: connectionId }),
+  close: () => set({ dialog: null, editingConnectionId: null }),
 }));

@@ -16,8 +16,8 @@ type MySqlQuery<'q> = sqlx::query::Query<'q, MySql, sqlx::mysql::MySqlArguments>
 /// lookup is needed here.
 pub(super) fn bind_value<'q>(query: MySqlQuery<'q>, value: &'q DbValue) -> Result<MySqlQuery<'q>, DbError> {
     Ok(match value {
-        DbValue::Null | DbValue::Default => {
-            unreachable!("NULL/DEFAULT are inlined as SQL keywords, not bound")
+        DbValue::Null | DbValue::Default | DbValue::Now => {
+            unreachable!("NULL/DEFAULT/CURRENT_TIMESTAMP are inlined as SQL keywords, not bound")
         }
         DbValue::Bool(b) => query.bind(*b),
         DbValue::Int(i) => query.bind(*i),

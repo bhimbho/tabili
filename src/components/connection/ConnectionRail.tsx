@@ -5,6 +5,7 @@ import { commands } from "../../bindings";
 import { useConnectionsStore, type SavedConnection } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
+import { useDialogsStore } from "../../stores/dialogsStore";
 import { DatabaseIcon, PlusIcon } from "../ui/icons";
 
 interface ConnectionRailProps {
@@ -18,6 +19,7 @@ function RailItem({ connection }: { connection: SavedConnection }) {
   const removeConnection = useConnectionsStore((s) => s.removeConnection);
   const closeTabsFor = useTabsStore((s) => s.closeTabsForConnection);
   const queryClient = useQueryClient();
+  const openEdit = useDialogsStore((s) => s.openEdit);
   const menu = useContextMenu();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,9 @@ function RailItem({ connection }: { connection: SavedConnection }) {
     connection.isConnected
       ? { label: "Disconnect", onSelect: disconnect }
       : { label: "Connect", onSelect: connect },
+    // Editable whether or not it's connected; a live connection is reopened
+    // with the new settings on save.
+    { label: "Edit connection…", onSelect: () => openEdit(connection.id) },
     { label: "Copy name", onSelect: () => navigator.clipboard.writeText(connection.name) },
     null,
     {

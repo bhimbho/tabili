@@ -101,8 +101,9 @@ fn csv_cell(value: &DbValue, opts: &CsvOptions) -> String {
         DbValue::Null => {
             return if opts.null_to_empty { String::new() } else { "NULL".to_string() }
         }
-        // Write-only marker; a fetched row never carries it.
+        // Write-only markers; a fetched row never carries them.
         DbValue::Default => "DEFAULT".to_string(),
+        DbValue::Now => "CURRENT_TIMESTAMP".to_string(),
         DbValue::Bool(b) => b.to_string(),
         DbValue::Int(i) => i.to_string(),
         DbValue::Float(f) => with_decimal_sep(&f.to_string(), opts),
@@ -129,6 +130,7 @@ fn json_cell(value: &DbValue) -> serde_json::Value {
     match value {
         DbValue::Null => Value::Null,
         DbValue::Default => Value::String("DEFAULT".to_string()),
+        DbValue::Now => Value::String("CURRENT_TIMESTAMP".to_string()),
         DbValue::Bool(b) => Value::Bool(*b),
         DbValue::Int(i) => Value::Number((*i).into()),
         DbValue::Float(f) => serde_json::Number::from_f64(*f).map_or(Value::Null, Value::Number),
@@ -159,6 +161,7 @@ fn sql_literal(value: &DbValue) -> String {
     match value {
         DbValue::Null => "NULL".to_string(),
         DbValue::Default => "DEFAULT".to_string(),
+        DbValue::Now => "CURRENT_TIMESTAMP".to_string(),
         DbValue::Bool(b) => if *b { "TRUE" } else { "FALSE" }.to_string(),
         DbValue::Int(i) => i.to_string(),
         DbValue::Float(f) => f.to_string(),

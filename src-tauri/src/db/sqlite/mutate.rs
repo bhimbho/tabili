@@ -15,7 +15,9 @@ pub(super) fn bind_value<'q>(
     value: &'q DbValue,
 ) -> Result<SqliteQuery<'q>, DbError> {
     Ok(match value {
-        DbValue::Null => unreachable!("null values are inlined as SQL literals, not bound"),
+        DbValue::Null | DbValue::Now => {
+            unreachable!("NULL/CURRENT_TIMESTAMP are inlined as SQL keywords, not bound")
+        }
         DbValue::Default => {
             return Err(DbError::Unsupported(
                 "SQLite has no DEFAULT keyword in UPDATE — set an explicit value".into(),
@@ -42,6 +44,16 @@ pub(super) fn bind_value<'q>(
     })
 }
 
+/// SQLite takes NULL and CURRENT_TIMESTAMP as bare keywords but has no `DEFAULT`
+/// in UPDATE or VALUES, so that one is deliberately left to `bind_value`, which
+/// reports why rather than emitting SQL the server would reject.
+fn inline_keyword(value: &DbValue) -> Option<&'static str> {
+    match value {
+        DbValue::Default => None,
+        other => other.inline_keyword(),
+    }
+}
+
 /// Splits column/value pairs into SQL fragments (placeholder or NULL literal) and
 /// the list of non-null values to bind, in matching order.
 fn build_assignments<'a>(
@@ -50,8 +62,8 @@ fn build_assignments<'a>(
     let mut fragments = Vec::with_capacity(values.len());
     let mut binds = Vec::new();
     for (col, val) in values {
-        if matches!(val, DbValue::Null) {
-            fragments.push(format!("{} = NULL", quote_ident(col)));
+        if let Some(keyword) = inline_keyword(val) {
+            fragments.push(format!("{} = {keyword}", quote_ident(col)));
         } else {
             fragments.push(format!("{} = ?", quote_ident(col)));
             binds.push(val);
@@ -70,8 +82,8 @@ pub async fn insert_row(
     let mut binds = Vec::new();
     for (col, val) in values {
         columns.push(quote_ident(col));
-        if matches!(val, DbValue::Null) {
-            placeholders.push("NULL".to_string());
+        if let Some(keyword) = inline_keyword(val) {
+            placeholders.push(keyword.to_string());
         } else {
             placeholders.push("?".to_string());
             binds.push(val);

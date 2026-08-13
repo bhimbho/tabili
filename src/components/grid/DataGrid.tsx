@@ -41,6 +41,8 @@ function displayValue(value: DbValue | undefined): string {
       return "";
     case "Default":
       return "DEFAULT";
+    case "Now":
+      return "CURRENT_TIMESTAMP";
     case "Bool":
       return value.value ? "true" : "false";
     case "Int":

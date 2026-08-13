@@ -52,8 +52,8 @@ pub(super) fn bind_value<'q>(
     value: &'q DbValue,
 ) -> Result<PgQuery<'q>, DbError> {
     Ok(match value {
-        DbValue::Null | DbValue::Default => {
-            unreachable!("NULL/DEFAULT are inlined as SQL keywords, not bound")
+        DbValue::Null | DbValue::Default | DbValue::Now => {
+            unreachable!("NULL/DEFAULT/CURRENT_TIMESTAMP are inlined as SQL keywords, not bound")
         }
         DbValue::Bool(b) => query.bind(*b),
         DbValue::Int(i) => query.bind(*i),
