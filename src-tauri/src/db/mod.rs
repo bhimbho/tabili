@@ -1,4 +1,5 @@
 pub mod error;
+pub mod filter;
 pub mod types;
 
 pub mod mysql;
@@ -57,6 +58,10 @@ pub trait DatabaseDriver: Send + Sync {
     async fn get_indexes(&self, table: &TableRef) -> Result<Vec<IndexInfo>, DbError>;
     async fn get_constraints(&self, table: &TableRef) -> Result<Vec<ConstraintInfo>, DbError>;
     async fn get_foreign_keys(&self, table: &TableRef) -> Result<Vec<ForeignKeyInfo>, DbError>;
+    async fn get_triggers(&self, table: &TableRef) -> Result<Vec<TriggerInfo>, DbError>;
+    /// The CREATE statement for the table, as close to what the server reports as
+    /// each dialect allows (SQLite stores it verbatim; Postgres is reconstructed).
+    async fn get_table_ddl(&self, table: &TableRef) -> Result<String, DbError>;
     async fn estimated_row_count(&self, table: &TableRef) -> Result<Option<i64>, DbError>;
 
     // --- data access ---

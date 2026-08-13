@@ -1,7 +1,7 @@
 use sqlx::{AssertSqlSafe, Row, SqlitePool};
 
 use crate::db::error::DbError;
-use crate::db::types::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo};
+use crate::db::types::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TriggerInfo};
 
 /// Double-embedded quotes to safely inline an identifier where sqlx can't bind
 /// one (PRAGMA statements and table names in FROM don't accept bind params).
@@ -98,6 +98,48 @@ pub async fn get_foreign_keys(pool: &SqlitePool, table: &str) -> Result<Vec<Fore
             referenced_columns: vec![row.get::<String, _>("to")],
         })
         .collect())
+}
+
+pub async fn get_triggers(pool: &SqlitePool, table: &str) -> Result<Vec<TriggerInfo>, DbError> {
+    let rows = sqlx::query(
+        "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ?1 ORDER BY name",
+    )
+    .bind(table)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| DbError::Query(e.to_string()))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let sql: String = row.try_get("sql").unwrap_or_default();
+            // SQLite only stores the raw CREATE TRIGGER text, so timing/event are
+            // recovered from it rather than exposed as catalog columns.
+            let upper = sql.to_uppercase();
+            let timing = ["BEFORE", "AFTER", "INSTEAD OF"]
+                .into_iter()
+                .find(|t| upper.contains(t))
+                .unwrap_or("")
+                .to_string();
+            let event = ["INSERT", "UPDATE", "DELETE"]
+                .into_iter()
+                .find(|e| upper.contains(e))
+                .unwrap_or("")
+                .to_string();
+            TriggerInfo { name: row.get::<String, _>("name"), timing, event, statement: sql }
+        })
+        .collect())
+}
+
+pub async fn get_table_ddl(pool: &SqlitePool, table: &str) -> Result<String, DbError> {
+    let row = sqlx::query("SELECT sql FROM sqlite_master WHERE name = ?1")
+        .bind(table)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+    Ok(row
+        .and_then(|r| r.try_get::<String, _>("sql").ok())
+        .unwrap_or_else(|| format!("-- no stored DDL for {table}")))
 }
 
 pub async fn estimated_row_count(pool: &SqlitePool, table: &str) -> Result<Option<i64>, DbError> {

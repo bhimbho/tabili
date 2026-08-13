@@ -6,11 +6,14 @@ use crate::db::error::DbError;
 use crate::db::types::DbValue;
 use super::introspect::quote_ident;
 
-type SqliteQuery<'q> = sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments>;
+pub(super) type SqliteQuery<'q> = sqlx::query::Query<'q, Sqlite, sqlx::sqlite::SqliteArguments>;
 
 /// NULL is inlined as a SQL literal rather than bound — sidesteps the need for
 /// column-type-aware "bind a typed NULL" logic entirely.
-fn bind_value<'q>(query: SqliteQuery<'q>, value: &'q DbValue) -> Result<SqliteQuery<'q>, DbError> {
+pub(super) fn bind_value<'q>(
+    query: SqliteQuery<'q>,
+    value: &'q DbValue,
+) -> Result<SqliteQuery<'q>, DbError> {
     Ok(match value {
         DbValue::Null => unreachable!("null values are inlined as SQL literals, not bound"),
         DbValue::Bool(b) => query.bind(*b),

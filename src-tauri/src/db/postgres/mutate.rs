@@ -8,7 +8,7 @@ use super::introspect::{quote_ident, quote_qualified};
 use crate::db::error::DbError;
 use crate::db::types::DbValue;
 
-type PgQuery<'q> = sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>;
+pub(super) type PgQuery<'q> = sqlx::query::Query<'q, Postgres, sqlx::postgres::PgArguments>;
 
 /// Some variants need an explicit cast alongside their placeholder since Postgres
 /// won't implicitly coerce a text bind into uuid/timestamptz/jsonb. DateTime
@@ -24,7 +24,10 @@ fn cast_suffix(value: &DbValue) -> &'static str {
     }
 }
 
-fn bind_value<'q>(query: PgQuery<'q>, value: &'q DbValue) -> Result<PgQuery<'q>, DbError> {
+pub(super) fn bind_value<'q>(
+    query: PgQuery<'q>,
+    value: &'q DbValue,
+) -> Result<PgQuery<'q>, DbError> {
     Ok(match value {
         DbValue::Null => unreachable!("null values are inlined as SQL literals, not bound"),
         DbValue::Bool(b) => query.bind(*b),

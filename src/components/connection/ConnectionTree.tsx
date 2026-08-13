@@ -6,6 +6,7 @@ import { useConnectionsStore, type SavedConnection } from "../../stores/connecti
 import { useTabsStore } from "../../stores/tabsStore";
 import { DialectBadge } from "./DialectBadge";
 import { TableIcon, ViewIcon } from "../ui/icons";
+import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 
 function ConnectionEntry({ connection }: { connection: SavedConnection }) {
   const { data: tables, isLoading, error } = useTables(connection.isConnected ? connection.id : null);
@@ -15,6 +16,27 @@ function ConnectionEntry({ connection }: { connection: SavedConnection }) {
   const queryClient = useQueryClient();
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [menuTable, setMenuTable] = useState<string | null>(null);
+  const menu = useContextMenu();
+
+  function openTableTab(name: string) {
+    openTab({
+      id: `${connection.id}:${name}`,
+      connectionId: connection.id,
+      title: name,
+      kind: "table",
+    });
+  }
+
+  const menuItems: MenuEntry[] = [
+    { label: "Open", onSelect: () => menuTable && openTableTab(menuTable) },
+    { label: "Copy table name", onSelect: () => menuTable && navigator.clipboard.writeText(menuTable) },
+    null,
+    {
+      label: "Refresh tables",
+      onSelect: () => queryClient.invalidateQueries({ queryKey: ["tables", connection.id] }),
+    },
+  ];
 
   async function handleConnect() {
     if (connection.isConnected || connecting) return;
@@ -65,14 +87,11 @@ function ConnectionEntry({ connection }: { connection: SavedConnection }) {
           {tables?.map((table) => (
             <button
               key={table.name}
-              onClick={() =>
-                openTab({
-                  id: `${connection.id}:${table.name}`,
-                  connectionId: connection.id,
-                  title: table.name,
-                  kind: "table",
-                })
-              }
+              onClick={() => openTableTab(table.name)}
+              onContextMenu={(e) => {
+                setMenuTable(table.name);
+                menu.open(e);
+              }}
               className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs text-neutral-400 transition-colors hover:bg-neutral-900 hover:text-neutral-100"
             >
               {table.isView ? (
@@ -86,6 +105,7 @@ function ConnectionEntry({ connection }: { connection: SavedConnection }) {
           {tables?.length === 0 && <div className="px-2 py-1 text-xs text-neutral-600">No tables.</div>}
         </div>
       )}
+      <ContextMenu position={menu.position} items={menuItems} onClose={menu.close} />
     </div>
   );
 }

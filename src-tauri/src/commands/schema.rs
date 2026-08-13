@@ -5,6 +5,7 @@ use crate::connection_registry::ConnectionRegistry;
 use crate::db::error::AppError;
 use crate::db::{
     ColumnInfo, DatabaseDriver, DbError, ForeignKeyInfo, IndexInfo, SchemaRef, TableInfo, TableRef,
+    TriggerInfo,
 };
 
 async fn resolve(
@@ -67,6 +68,28 @@ pub async fn get_indexes(
 ) -> Result<Vec<IndexInfo>, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver.get_indexes(&table_ref(table)).await.map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_triggers(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    table: String,
+) -> Result<Vec<TriggerInfo>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver.get_triggers(&table_ref(table)).await.map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_table_ddl(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    table: String,
+) -> Result<String, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver.get_table_ddl(&table_ref(table)).await.map_err(AppError::from)
 }
 
 #[tauri::command]

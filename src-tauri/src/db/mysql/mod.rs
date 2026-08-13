@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::db::{
     ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError, DbValue,
     FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage, SchemaInfo,
-    SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
+    SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo,
 };
 
 /// MySQL/MariaDB driver — implemented in full as part of the M2 milestone (see project plan).
@@ -92,6 +92,12 @@ impl DatabaseDriver for MySqlDriver {
     }
     async fn get_foreign_keys(&self, _table: &TableRef) -> Result<Vec<ForeignKeyInfo>, DbError> {
         Err(DbError::Unsupported("M2: mysql driver not yet implemented".into()))
+    }
+    async fn get_triggers(&self, _table: &TableRef) -> Result<Vec<TriggerInfo>, DbError> {
+        Err(DbError::Unsupported("mysql driver not yet implemented".into()))
+    }
+    async fn get_table_ddl(&self, _table: &TableRef) -> Result<String, DbError> {
+        Err(DbError::Unsupported("mysql driver not yet implemented".into()))
     }
     async fn estimated_row_count(&self, _table: &TableRef) -> Result<Option<i64>, DbError> {
         Err(DbError::Unsupported("M2: mysql driver not yet implemented".into()))
