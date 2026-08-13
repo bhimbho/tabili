@@ -3,6 +3,7 @@ mod commands;
 mod connection_registry;
 mod credentials;
 pub mod db;
+mod ssh_tunnel;
 
 use app_store::AppStore;
 use connection_registry::ConnectionRegistry;

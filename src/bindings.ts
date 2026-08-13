@@ -161,6 +161,14 @@ export type NewConnectionRequest = {
 	sslCaPath: string | null,
 	/**  SQLite only. */
 	filePath: string | null,
+	sshEnabled: boolean,
+	sshHost: string | null,
+	sshPort: number | null,
+	sshUsername: string | null,
+	sshPassword: string | null,
+	sshUseKey: boolean,
+	sshPrivateKeyPath: string | null,
+	sshPrivateKeyPassphrase: string | null,
 };
 
 export type OpenedConnection = {
@@ -199,6 +207,12 @@ export type SavedConnectionRecord = {
 	sslCertPath: string | null,
 	sslCaPath: string | null,
 	filePath: string | null,
+	sshEnabled: boolean,
+	sshHost: string | null,
+	sshPort: number | null,
+	sshUsername: string | null,
+	sshUseKey: boolean,
+	sshPrivateKeyPath: string | null,
 };
 
 export type SavedQuery = {

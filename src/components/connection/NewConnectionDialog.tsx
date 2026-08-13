@@ -82,6 +82,14 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
   const [sslCertPath, setSslCertPath] = useState("");
   const [sslCaPath, setSslCaPath] = useState("");
   const [filePath, setFilePath] = useState("");
+  const [sshEnabled, setSshEnabled] = useState(false);
+  const [sshHost, setSshHost] = useState("");
+  const [sshPort, setSshPort] = useState("22");
+  const [sshUsername, setSshUsername] = useState("");
+  const [sshPassword, setSshPassword] = useState("");
+  const [sshUseKey, setSshUseKey] = useState(false);
+  const [sshPrivateKeyPath, setSshPrivateKeyPath] = useState("");
+  const [sshPrivateKeyPassphrase, setSshPrivateKeyPassphrase] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +108,14 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
     setSslCertPath("");
     setSslCaPath("");
     setFilePath("");
+    setSshEnabled(false);
+    setSshHost("");
+    setSshPort("22");
+    setSshUsername("");
+    setSshPassword("");
+    setSshUseKey(false);
+    setSshPrivateKeyPath("");
+    setSshPrivateKeyPassphrase("");
     setConnecting(false);
     setError(null);
   }
@@ -156,6 +172,15 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
       sslCertPath: isSqlite ? null : sslCertPath || null,
       sslCaPath: isSqlite ? null : sslCaPath || null,
       filePath: isSqlite ? filePath : null,
+      sshEnabled: !isSqlite && sshEnabled,
+      sshHost: !isSqlite && sshEnabled ? sshHost : null,
+      sshPort: !isSqlite && sshEnabled ? Number(sshPort) || 22 : null,
+      sshUsername: !isSqlite && sshEnabled ? sshUsername : null,
+      sshPassword: !isSqlite && sshEnabled && !sshUseKey ? sshPassword : null,
+      sshUseKey: !isSqlite && sshEnabled && sshUseKey,
+      sshPrivateKeyPath: !isSqlite && sshEnabled && sshUseKey ? sshPrivateKeyPath || null : null,
+      sshPrivateKeyPassphrase:
+        !isSqlite && sshEnabled && sshUseKey ? sshPrivateKeyPassphrase || null : null,
     });
 
     setConnecting(false);
@@ -173,14 +198,17 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
     handleOpenChange(false);
   }
 
-  const canConnect = dialect === "Sqlite" ? !!filePath : !!host && !!username;
+  const canConnect =
+    dialect === "Sqlite"
+      ? !!filePath
+      : !!host && !!username && (!sshEnabled || (!!sshHost && !!sshUsername));
   const activeDialect = DIALECTS.find((d) => d.key === dialect);
 
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 max-h-[85vh] w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
           {step === "pick" && (
             <>
               <Dialog.Title className="text-base font-semibold text-neutral-100">New Connection</Dialog.Title>
@@ -304,6 +332,111 @@ export function NewConnectionDialog({ open, onOpenChange }: NewConnectionDialogP
                         <CertButton label="CA Cert…" set={sslCaPath} onPick={() => pickCertFile(setSslCaPath)} />
                       </div>
                     </Field>
+
+                    <div className="border-t border-neutral-800 pt-3">
+                      <label className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-neutral-300">Over SSH</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={sshEnabled}
+                          onClick={() => setSshEnabled((v) => !v)}
+                          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                            sshEnabled ? "bg-indigo-600" : "bg-neutral-700"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                              sshEnabled ? "translate-x-4" : "translate-x-0.5"
+                            }`}
+                          />
+                        </button>
+                      </label>
+
+                      {sshEnabled && (
+                        <div className="mt-3 space-y-3">
+                          <div className="flex gap-2">
+                            <Field label="Server" className="flex-[2]">
+                              <input
+                                value={sshHost}
+                                onChange={(e) => setSshHost(e.target.value)}
+                                className={inputClass}
+                              />
+                            </Field>
+                            <Field label="Port" className="flex-1">
+                              <input
+                                value={sshPort}
+                                onChange={(e) => setSshPort(e.target.value)}
+                                className={inputClass}
+                              />
+                            </Field>
+                          </div>
+                          <div className="flex gap-2">
+                            <Field label="User" className="flex-1">
+                              <input
+                                value={sshUsername}
+                                onChange={(e) => setSshUsername(e.target.value)}
+                                className={inputClass}
+                              />
+                            </Field>
+                            {!sshUseKey && (
+                              <Field label="Password" className="flex-1">
+                                <input
+                                  type="password"
+                                  value={sshPassword}
+                                  onChange={(e) => setSshPassword(e.target.value)}
+                                  className={inputClass}
+                                />
+                              </Field>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-neutral-600">Stored in Keychain.</p>
+
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={sshUseKey}
+                              onChange={(e) => setSshUseKey(e.target.checked)}
+                              className="accent-indigo-500"
+                            />
+                            <span className="text-xs text-neutral-400">Use SSH key</span>
+                          </label>
+
+                          {sshUseKey && (
+                            <>
+                              <Field label="Private key">
+                                <div className="flex gap-2">
+                                  <input
+                                    value={sshPrivateKeyPath}
+                                    readOnly
+                                    placeholder="~/.ssh/id_ed25519"
+                                    className={`${inputClass} flex-1 text-neutral-400`}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => pickCertFile(setSshPrivateKeyPath)}
+                                    className="shrink-0 rounded-lg border border-neutral-700 px-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
+                                  >
+                                    Choose…
+                                  </button>
+                                </div>
+                              </Field>
+                              <Field label="Passphrase (optional)">
+                                <input
+                                  type="password"
+                                  value={sshPrivateKeyPassphrase}
+                                  onChange={(e) => setSshPrivateKeyPassphrase(e.target.value)}
+                                  className={inputClass}
+                                />
+                              </Field>
+                              <p className="text-[11px] text-neutral-600">
+                                Leave the private key empty to use one of ~/.ssh/id_ed25519, id_ecdsa or id_rsa.
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
               </div>

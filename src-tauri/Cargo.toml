@@ -39,4 +39,5 @@ uuid = { version = "1.24.0", features = ["v4", "serde"] }
 chrono = "0.4.45"
 rust_decimal = "1.42.1"
 window-vibrancy = "0.8.0"
+russh = "0.62.6"
 
