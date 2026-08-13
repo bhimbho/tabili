@@ -204,14 +204,14 @@ export function DataGrid({
       const shown = edit ? edit.newValue : value;
       const display = displayValue(shown);
       const fk = foreignKeys[columnName];
-      // A trailing arrow marks the clickable jump zone. The value keeps normal
-      // cell styling so foreign keys don't stand out as differently-typed data.
+      // The arrow is painted separately in drawCell so it stays pinned to the
+      // right edge instead of being truncated along with a long value.
       const isLinkable = fk !== undefined && shown !== undefined && shown.type !== "Null";
 
       return {
         kind: GridCellKind.Text,
         data: display,
-        displayData: isLinkable ? `${display}  →` : display,
+        displayData: display,
         allowOverlay: hasPk && !deleted && isEditableValue(value),
         themeOverride: deleted ? DELETE_THEME : edit ? EDIT_THEME : undefined,
         cursor: isLinkable ? "pointer" : undefined,
@@ -251,6 +251,37 @@ export function DataGrid({
       });
     },
     [ordered, rows, insertRows, hasPk, extractPk, setEdit, setInsertValue, connectionId, table],
+  );
+
+  const drawCell = useCallback(
+    (args: {
+      ctx: CanvasRenderingContext2D;
+      col: number;
+      row: number;
+      rect: { x: number; y: number; width: number; height: number };
+      theme: { bgCell?: string; textLight?: string };
+    }, drawContent: () => void) => {
+      drawContent();
+
+      const columnName = ordered[args.col];
+      if (!foreignKeys[columnName] || args.row >= rows.length) return;
+      const value = rows[args.row]?.[columnName];
+      if (!value || value.type === "Null") return;
+
+      const { ctx, rect } = args;
+      const zoneX = rect.x + rect.width - FK_HIT_WIDTH;
+      ctx.save();
+      // Cover whatever the value drew underneath so the arrow never collides
+      // with truncated text.
+      ctx.fillStyle = args.theme.bgCell ?? "#171717";
+      ctx.fillRect(zoneX, rect.y + 1, FK_HIT_WIDTH, rect.height - 2);
+      ctx.fillStyle = args.theme.textLight ?? "#737373";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("→", zoneX + FK_HIT_WIDTH / 2, rect.y + rect.height / 2);
+      ctx.restore();
+    },
+    [ordered, rows, foreignKeys],
   );
 
   const onCellClicked = useCallback(
@@ -388,6 +419,7 @@ export function DataGrid({
       onCellEdited={onCellEdited}
       onCellContextMenu={onCellContextMenu}
       onCellClicked={onCellClicked}
+      drawCell={drawCell}
       onHeaderClicked={onHeaderClicked}
       columns={gridColumns}
       rows={rows.length + insertRows.length}
