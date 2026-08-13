@@ -14,6 +14,8 @@ interface GridToolbarProps {
   onAddRow: () => void;
   onAddColumn: () => void;
   onReviewChanges: () => void;
+  detailsOpen: boolean;
+  onToggleDetails: () => void;
 }
 
 export function GridToolbar({
@@ -27,6 +29,8 @@ export function GridToolbar({
   onAddRow,
   onAddColumn,
   onReviewChanges,
+  detailsOpen,
+  onToggleDetails,
 }: GridToolbarProps) {
   const count = useChangesStore((s) => s.count());
   const isData = tab === "data";
@@ -70,6 +74,17 @@ export function GridToolbar({
           <span className="text-xs text-neutral-500">
             {busy ? "…" : `${rowCount}${hasMore ? "+" : ""} rows`}
           </span>
+        )}
+        {isData && (
+          <button
+            onClick={onToggleDetails}
+            title="Toggle row details"
+            className={`rounded-md px-2 py-0.5 text-xs transition-colors hover:bg-white/10 ${
+              detailsOpen ? "text-neutral-200" : "text-neutral-500"
+            }`}
+          >
+            Details
+          </button>
         )}
         <button
           onClick={onReviewChanges}

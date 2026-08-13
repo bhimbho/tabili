@@ -7,6 +7,8 @@ export interface OpenTab {
   kind: "table" | "query";
   /** null for SQLite / driver default. */
   schema: string | null;
+  /** Set when the tab was opened by following a foreign key. */
+  seedFilter?: { column: string; value: string };
 }
 
 interface TabsState {
