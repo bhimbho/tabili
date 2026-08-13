@@ -216,6 +216,16 @@ pub async fn list_saved_connections(
     app_store.list().await.map_err(AppError::from)
 }
 
+/// Rebuilds the native menu so File ▸ Open Recent matches the saved connections.
+/// Called by the frontend after a connection is added or deleted.
+#[tauri::command]
+#[specta::specta]
+pub async fn refresh_menu(app: tauri::AppHandle) -> Result<(), AppError> {
+    crate::app_menu::refresh(&app)
+        .await
+        .map_err(|e| AppError::from(DbError::Other(format!("failed to rebuild menu: {e}"))))
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn connect_saved(

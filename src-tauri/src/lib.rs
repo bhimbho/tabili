@@ -1,8 +1,12 @@
+mod app_menu;
 mod app_store;
 mod commands;
 mod connection_registry;
 mod credentials;
 pub mod db;
+pub mod export;
+pub mod import;
+pub mod sql;
 mod ssh_tunnel;
 
 use app_store::AppStore;
@@ -23,6 +27,7 @@ pub fn run() {
         commands::connections::delete_saved_connection,
         commands::connections::list_databases,
         commands::connections::switch_database,
+        commands::connections::refresh_menu,
         commands::schema::list_schemas,
         commands::schema::list_tables,
         commands::schema::list_views,
@@ -46,6 +51,10 @@ pub fn run() {
         commands::console::list_saved_queries,
         commands::console::save_query,
         commands::console::delete_saved_query,
+        commands::transfer::export_tables,
+        commands::transfer::preview_csv,
+        commands::transfer::import_csv,
+        commands::transfer::import_sql_dump,
     ]);
 
     #[cfg(debug_assertions)]
@@ -61,6 +70,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(ConnectionRegistry::default())
         .invoke_handler(builder.invoke_handler())
+        .on_menu_event(|app, event| app_menu::on_menu_event(app, event.id().as_ref()))
         .setup(move |app| {
             builder.mount_events(app);
 
@@ -71,6 +81,16 @@ pub fn run() {
                 store
             });
             app.manage(app_store);
+
+            // Built after the store is managed so "Open Recent" can be populated.
+            let handle = app.handle().clone();
+            tauri::async_runtime::block_on(async {
+                if let Err(e) = app_menu::refresh(&handle).await {
+                    // Not fatal — the app still runs, just without our menu — but
+                    // silently falling back to the default menu is worth shouting about.
+                    tracing::error!("failed to build application menu: {e}");
+                }
+            });
 
             #[cfg(target_os = "macos")]
             {

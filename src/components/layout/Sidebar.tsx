@@ -1,12 +1,16 @@
-import { useState } from "react";
 import { NewConnectionDialog } from "../connection/NewConnectionDialog";
 import { ConnectionRail } from "../connection/ConnectionRail";
 import { ObjectPanel } from "../connection/ObjectPanel";
 import { Resizer } from "../ui/Resizer";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { useDialogsStore } from "../../stores/dialogsStore";
 
 export function Sidebar() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Held in a store rather than local state so File ▸ Open… can reach it too.
+  const dialogOpen = useDialogsStore((s) => s.dialog === "new-connection");
+  const openDialog = useDialogsStore((s) => s.open);
+  const closeDialog = useDialogsStore((s) => s.close);
+  const setDialogOpen = (open: boolean) => (open ? openDialog("new-connection") : closeDialog());
   const { sidebarWidth, sidebarVisible, setSidebarWidth } = useLayoutStore();
 
   if (!sidebarVisible) {
