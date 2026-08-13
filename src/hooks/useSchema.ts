@@ -41,6 +41,14 @@ export function useViews(connectionId: string | null, schema?: Schema) {
   });
 }
 
+export function useFunctions(connectionId: string | null, schema?: Schema) {
+  return useQuery({
+    queryKey: ["functions", connectionId, schema ?? null],
+    queryFn: async () => unwrap(await commands.listFunctions(connectionId as string, schema ?? null)),
+    enabled: !!connectionId,
+  });
+}
+
 export function useColumns(connectionId: string | null, table: string | null, schema?: Schema) {
   return useQuery({
     queryKey: ["columns", connectionId, schema ?? null, table],

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
 import { useChangesStore } from "../../stores/changesStore";
@@ -28,6 +28,8 @@ export function TopBar() {
   const discardAll = useChangesStore((s) => s.discardAll);
   const queryClient = useQueryClient();
   const [confirmReload, setConfirmReload] = useState(false);
+  // Any in-flight query for this connection counts as "still loading".
+  const fetching = useIsFetching() > 0;
 
   const connection = connections.find((c) => c.id === activeId);
   const { data: info } = useServerInfo(connection?.isConnected ? activeId : null);
@@ -65,7 +67,7 @@ export function TopBar() {
   return (
     <header
       data-tauri-drag-region
-      className="flex h-11 shrink-0 items-center gap-1.5 border-b px-3"
+      className="relative flex h-11 shrink-0 items-center gap-1.5 border-b px-3"
       style={{
         // Traffic lights overlay this bar's left edge when the sidebar is hidden.
         paddingLeft: sidebarVisible ? undefined : 82,
@@ -86,7 +88,7 @@ export function TopBar() {
         title="Reload connection"
         className={iconButton}
       >
-        <ReloadIcon className="h-4 w-4" />
+        <ReloadIcon className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
       </button>
 
       <div data-tauri-drag-region className="flex min-w-0 flex-1 justify-center px-2">
@@ -126,6 +128,13 @@ export function TopBar() {
       >
         <PanelRightIcon className="h-4 w-4" />
       </button>
+
+      {fetching && (
+        <div
+          className="progress-strip pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden"
+          style={{ color: connection?.accentColor ?? "#6366f1" }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmReload}

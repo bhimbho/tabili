@@ -113,7 +113,7 @@ export function ConnectionRail({ onNewConnection }: ConnectionRailProps) {
   const connections = useConnectionsStore((s) => s.connections);
 
   return (
-    <div className="flex w-[76px] shrink-0 flex-col border-r border-black/40 bg-black/20">
+    <div className="flex w-[76px] shrink-0 flex-col border-r border-black/50 bg-black/25">
       <div data-tauri-drag-region className="h-7 shrink-0" />
       <div className="flex-1 overflow-y-auto">
         {connections.map((c) => (

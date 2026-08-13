@@ -25,6 +25,7 @@ pub fn run() {
         commands::schema::list_schemas,
         commands::schema::list_tables,
         commands::schema::list_views,
+        commands::schema::list_functions,
         commands::schema::get_columns,
         commands::schema::get_indexes,
         commands::schema::get_foreign_keys,

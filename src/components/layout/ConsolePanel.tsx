@@ -10,7 +10,7 @@ export function ConsolePanel() {
   if (!open) return null;
 
   return (
-    <div className="flex h-56 shrink-0 flex-col border-t border-neutral-800 bg-neutral-950">
+    <div className="edge-highlight flex h-56 shrink-0 flex-col border-t border-black/50 bg-[#111113]">
       <div className="flex h-8 shrink-0 items-center justify-between border-b border-neutral-800 px-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
           Console

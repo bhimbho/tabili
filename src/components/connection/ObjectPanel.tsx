@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDatabases, useSchemas, useTables, useViews } from "../../hooks/useSchema";
+import { useDatabases, useFunctions, useSchemas, useTables, useViews } from "../../hooks/useSchema";
 import { commands } from "../../bindings";
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
@@ -9,7 +9,7 @@ import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
 import { friendlyError } from "../../lib/errors";
-import { ChevronIcon, TableIcon, ViewIcon } from "../ui/icons";
+import { ChevronIcon, FunctionIcon, TableIcon, ViewIcon } from "../ui/icons";
 import { HistoryPanel, QueriesPanel } from "./HistoryPanel";
 
 type PanelTab = "items" | "queries" | "history";
@@ -89,11 +89,16 @@ export function ObjectPanel() {
   }
   const { data: tables, isLoading, error } = useTables(connected ? connectionId : null, schema);
   const { data: views } = useViews(connected ? connectionId : null, schema);
+  const { data: functions } = useFunctions(connected ? connectionId : null, schema);
 
   const needle = search.trim().toLowerCase();
   const match = (n: string) => !needle || n.toLowerCase().includes(needle);
   const shownTables = useMemo(() => (tables ?? []).filter((t) => match(t.name)), [tables, needle]);
   const shownViews = useMemo(() => (views ?? []).filter((v) => match(v.name)), [views, needle]);
+  const shownFunctions = useMemo(
+    () => (functions ?? []).filter((f) => match(f.name)),
+    [functions, needle],
+  );
 
   function open(name: string) {
     if (!connectionId) return;
@@ -209,6 +214,24 @@ export function ObjectPanel() {
                 </p>
               )}
             </Group>
+
+            {shownFunctions.length > 0 && (
+              <Group title="Functions" count={shownFunctions.length}>
+                {shownFunctions.map((f) => (
+                  <div
+                    key={`${f.name}(${f.arguments})`}
+                    title={`${f.name}(${f.arguments}) → ${f.returns}`}
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-neutral-400"
+                  >
+                    <FunctionIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                    <span className="truncate">{f.name}</span>
+                    <span className="ml-auto shrink-0 text-[10px] text-neutral-600">
+                      {f.kind === "procedure" ? "proc" : "fn"}
+                    </span>
+                  </div>
+                ))}
+              </Group>
+            )}
 
             {shownViews.length > 0 && (
               <Group title="Views" count={shownViews.length}>

@@ -13,7 +13,7 @@ use sqlx::Row;
 use crate::db::{
     filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
     DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
-    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo,
+    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo, FunctionInfo,
 };
 use introspect::{quote_ident, quote_qualified};
 
@@ -106,6 +106,9 @@ impl DatabaseDriver for PostgresDriver {
     }
     async fn list_views(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
         introspect::list_views(&self.pool, Self::schema_of(schema)).await
+    }
+    async fn list_functions(&self, schema: &SchemaRef) -> Result<Vec<FunctionInfo>, DbError> {
+        introspect::list_functions(&self.pool, Self::schema_of(schema)).await
     }
     async fn get_columns(&self, table: &TableRef) -> Result<Vec<ColumnInfo>, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);

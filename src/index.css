@@ -10,6 +10,17 @@ body,
   background: transparent;
 }
 
+/* A slight vertical gradient stops the large flat panes reading as dead space. */
+.surface-gradient {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.12));
+}
+
+/* Hairline highlight along the top edge, the trick that makes native panes
+   look crisp rather than flat. */
+.edge-highlight {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 body {
   -webkit-font-smoothing: antialiased;
   /* A desktop app shouldn't behave like a web page: no text selection or
@@ -29,7 +40,25 @@ textarea,
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: theme(colors.neutral.600) transparent;
+  scrollbar-color: theme(colors.neutral.700) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: content-box;
 }
 
 [data-tauri-drag-region] {
@@ -51,6 +80,20 @@ textarea,
   left: 0;
   top: 0;
   z-index: 9999;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+.progress-strip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 33%;
+  background: currentColor;
+  animation: indeterminate 1.1s ease-in-out infinite;
 }
 
 @keyframes dialog-overlay-show {

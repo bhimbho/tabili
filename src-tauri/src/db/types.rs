@@ -110,6 +110,17 @@ pub struct ServerInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct FunctionInfo {
+    pub name: String,
+    /// Rendered argument list, e.g. "uid integer, since timestamptz".
+    pub arguments: String,
+    pub returns: String,
+    /// "function" or "procedure".
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct TriggerInfo {
     pub name: String,
     pub timing: String,

@@ -5,7 +5,7 @@ use crate::connection_registry::ConnectionRegistry;
 use crate::db::error::AppError;
 use crate::db::{
     ColumnInfo, DatabaseDriver, DbError, ForeignKeyInfo, IndexInfo, SchemaInfo, SchemaRef,
-    TableInfo, TableRef, TriggerInfo,
+    TableInfo, TableRef, TriggerInfo, FunctionInfo,
 };
 
 async fn resolve(
@@ -58,6 +58,20 @@ pub async fn list_views(
     let driver = resolve(&registry, &connection_id).await?;
     driver
         .list_views(&SchemaRef { database: None, schema })
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_functions(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+) -> Result<Vec<FunctionInfo>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .list_functions(&SchemaRef { database: None, schema })
         .await
         .map_err(AppError::from)
 }
