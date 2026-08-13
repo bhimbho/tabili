@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
+import { homeDir, join } from "@tauri-apps/api/path";
 import { useQueryClient } from "@tanstack/react-query";
 import { commands, type SavedConnectionRecord } from "../../bindings";
 import { useConnectionsStore, CONNECTION_COLORS, type Dialect } from "../../stores/connectionsStore";
@@ -168,7 +169,11 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
     const path = await openFileDialog({
       multiple: false,
       directory: false,
-      filters: [{ name: "SQLite database", extensions: ["sqlite", "sqlite3", "db"] }],
+      filters: [
+        { name: "SQLite database", extensions: ["sqlite", "sqlite3", "db"] },
+        // A SQLite file needn't be named with any of those extensions.
+        { name: "All files", extensions: ["*"] },
+      ],
     });
     if (!path || Array.isArray(path)) return;
     setFilePath(path);
@@ -179,10 +184,32 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
     const path = await openFileDialog({
       multiple: false,
       directory: false,
-      filters: [{ name: "Certificate / Key", extensions: ["pem", "crt", "cer", "key", "p12", "pfx"] }],
+      filters: [
+        { name: "Certificate / Key", extensions: ["pem", "crt", "cer", "key", "p12", "pfx"] },
+        // Certificates don't always carry a conventional extension.
+        { name: "All files", extensions: ["*"] },
+      ],
     });
     if (!path || Array.isArray(path)) return;
     setter(path);
+  }
+
+  /**
+   * SSH keys are extensionless (`id_ed25519`, `id_rsa`) and live in a hidden
+   * folder, so this picker applies no filter and opens in ~/.ssh — with an
+   * extension filter they'd be unselectable, and the folder unreachable
+   * without knowing the Cmd+Shift+. shortcut.
+   */
+  async function pickPrivateKey() {
+    let defaultPath: string | undefined;
+    try {
+      defaultPath = await join(await homeDir(), ".ssh");
+    } catch {
+      // Falls back to the system default location.
+    }
+    const path = await openFileDialog({ multiple: false, directory: false, defaultPath });
+    if (!path || Array.isArray(path)) return;
+    setSshPrivateKeyPath(path);
   }
 
   async function handleConnect() {
@@ -457,7 +484,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                                   />
                                   <button
                                     type="button"
-                                    onClick={() => pickCertFile(setSshPrivateKeyPath)}
+                                    onClick={pickPrivateKey}
                                     className="shrink-0 rounded-lg border border-neutral-700 px-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
                                   >
                                     Choose…
