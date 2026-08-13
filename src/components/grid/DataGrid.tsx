@@ -11,10 +11,10 @@ import "@glideapps/glide-data-grid/dist/index.css";
 import type { ColumnInfo, DbValue } from "../../bindings";
 import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
 import { ContextMenu, type MenuEntry, type MenuPosition } from "../ui/ContextMenu";
+import type { FkMap } from "../../stores/detailsStore";
 import { darkGridTheme, DELETE_THEME, EDIT_THEME, INSERT_THEME } from "./gridTheme";
 
-/** column -> the table/column it points at, used for the jump affordance. */
-export type FkMap = Record<string, { table: string; column: string }>;
+export type { FkMap } from "../../stores/detailsStore";
 
 /** Width of the clickable arrow zone at the right edge of a foreign-key cell. */
 const FK_HIT_WIDTH = 26;

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { DataGrid, type FkMap } from "./DataGrid";
-import { RowDetailsPanel } from "./RowDetailsPanel";
+import { DataGrid } from "./DataGrid";
 import { GridToolbar } from "./GridToolbar";
 import { PendingChangesDialog } from "./PendingChangesDialog";
 import { FilterBar, toColumnFilters, type DraftFilter } from "./FilterBar";
@@ -13,8 +11,7 @@ import { DdlView } from "../schema-editor/DdlView";
 import { useColumns, useForeignKeys } from "../../hooks/useSchema";
 import { useTableRows, type TableQuery } from "../../hooks/useTableData";
 import { useChangesStore } from "../../stores/changesStore";
-import { useLayoutStore } from "../../stores/layoutStore";
-import { Resizer } from "../ui/Resizer";
+import { useDetailsStore, type FkMap } from "../../stores/detailsStore";
 import { useTabsStore } from "../../stores/tabsStore";
 import type { DbValue } from "../../bindings";
 import { useConsoleStore } from "../../stores/consoleStore";
@@ -58,16 +55,14 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
       : [],
   );
   const [query, setQuery] = useState<TableQuery>({ filters: [], orderBy: null, orderDesc: false });
-  const [activeRow, setActiveRow] = useState<Record<string, DbValue> | null>(null);
-  const { detailsWidth, detailsVisible, setDetailsWidth, toggleDetails, setDetailsVisible } =
-    useLayoutStore();
+  const setDetailsContext = useDetailsStore((s) => s.setContext);
+  const setRow = useDetailsStore((s) => s.setRow);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
 
   const { data: columnInfos, error: columnsError } = useColumns(connectionId, table, schema ?? undefined);
   const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, schema, query);
   const addInsert = useChangesStore((s) => s.addInsert);
-  const queryClient = useQueryClient();
 
   const { data: fks } = useForeignKeys(connectionId, table, schema ?? undefined);
   const openTab = useTabsStore((s) => s.openTab);
@@ -138,18 +133,24 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
     );
   }, [seedFilter, columnInfos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-reads rows and schema for the current table; the server may have changed
-  // underneath us, and staged edits are deliberately left alone.
-  function reload() {
-    queryClient.invalidateQueries({ queryKey: ["rows", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["columns", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["tables", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["views", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["indexes", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["foreign-keys", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["triggers", connectionId] });
-    queryClient.invalidateQueries({ queryKey: ["table-ddl", connectionId] });
-  }
+  // The Details pane renders outside this component, so the data it needs is
+  // published here and cleared whenever this tab isn't showing rows.
+  useEffect(() => {
+    if (tab !== "data" || !rowPage) {
+      setDetailsContext(null);
+      return;
+    }
+    setDetailsContext({
+      connectionId,
+      schema,
+      table,
+      columns: rowPage.columns,
+      columnInfos: columnInfos ?? [],
+      foreignKeys,
+    });
+  }, [tab, rowPage, columnInfos, foreignKeys, connectionId, schema, table, setDetailsContext]);
+
+  useEffect(() => () => setDetailsContext(null), [setDetailsContext]);
 
   function applyFilters() {
     setQuery((q) => ({ ...q, filters: toColumnFilters(drafts, columnInfos ?? []) }));
@@ -186,9 +187,6 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
           setAddColumnOpen(true);
         }}
         onReviewChanges={() => setReviewOpen(true)}
-        detailsOpen={detailsVisible}
-        onToggleDetails={toggleDetails}
-        onReload={reload}
       />
 
       {tab === "data" && (
@@ -234,44 +232,20 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
               </div>
             )}
             {rowPage && !error && (
-              <div className="flex h-full">
-                <div className="min-w-0 flex-1">
-                  <DataGrid
-                    connectionId={connectionId}
-                    table={table}
-                    schema={schema}
-                    columns={rowPage.columns}
-                    rows={rowPage.rows}
-                    columnInfos={columnInfos ?? []}
-                    sortColumn={query.orderBy}
-                    sortDesc={query.orderDesc}
-                    onToggleSort={toggleSort}
-                    foreignKeys={foreignKeys}
-                    onFollowForeignKey={followForeignKey}
-                    onActiveRowChange={setActiveRow}
-                  />
-                </div>
-                {detailsVisible && (
-                  <>
-                    <Resizer
-                      width={detailsWidth}
-                      onResize={setDetailsWidth}
-                      side="right"
-                      min={220}
-                      max={560}
-                    />
-                    <RowDetailsPanel
-                      width={detailsWidth}
-                      row={activeRow}
-                      columns={rowPage.columns}
-                      columnInfos={columnInfos ?? []}
-                      foreignKeys={foreignKeys}
-                      onFollowForeignKey={followForeignKey}
-                      onClose={() => setDetailsVisible(false)}
-                    />
-                  </>
-                )}
-              </div>
+              <DataGrid
+                connectionId={connectionId}
+                table={table}
+                schema={schema}
+                columns={rowPage.columns}
+                rows={rowPage.rows}
+                columnInfos={columnInfos ?? []}
+                sortColumn={query.orderBy}
+                sortDesc={query.orderDesc}
+                onToggleSort={toggleSort}
+                foreignKeys={foreignKeys}
+                onFollowForeignKey={followForeignKey}
+                onActiveRowChange={setRow}
+              />
             )}
           </>
         )}

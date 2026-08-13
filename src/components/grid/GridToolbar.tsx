@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useChangesStore } from "../../stores/changesStore";
-import { PlusIcon, ReloadIcon } from "../ui/icons";
+import { PlusIcon } from "../ui/icons";
 
 interface GridToolbarProps {
   tabStrip: ReactNode;
@@ -14,9 +14,6 @@ interface GridToolbarProps {
   onAddRow: () => void;
   onAddColumn: () => void;
   onReviewChanges: () => void;
-  detailsOpen: boolean;
-  onToggleDetails: () => void;
-  onReload: () => void;
 }
 
 export function GridToolbar({
@@ -30,9 +27,6 @@ export function GridToolbar({
   onAddRow,
   onAddColumn,
   onReviewChanges,
-  detailsOpen,
-  onToggleDetails,
-  onReload,
 }: GridToolbarProps) {
   const count = useChangesStore((s) => s.count());
   const isData = tab === "data";
@@ -72,28 +66,11 @@ export function GridToolbar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        <button
-          onClick={onReload}
-          title="Reload data and schema"
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
-        >
-          <ReloadIcon className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-        </button>
+
         {isData && (
           <span className="text-xs text-neutral-500">
             {busy ? "…" : `${rowCount}${hasMore ? "+" : ""} rows`}
           </span>
-        )}
-        {isData && (
-          <button
-            onClick={onToggleDetails}
-            title="Toggle row details"
-            className={`rounded-md px-2 py-0.5 text-xs transition-colors hover:bg-white/10 ${
-              detailsOpen ? "text-neutral-200" : "text-neutral-500"
-            }`}
-          >
-            Details
-          </button>
         )}
         <button
           onClick={onReviewChanges}

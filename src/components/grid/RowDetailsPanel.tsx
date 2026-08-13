@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ColumnInfo, DbValue } from "../../bindings";
 import { KeyIcon } from "../ui/icons";
-import type { FkMap } from "./DataGrid";
+import type { FkMap } from "../../stores/detailsStore";
 
 interface RowDetailsPanelProps {
   width: number;
