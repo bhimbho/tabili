@@ -23,12 +23,13 @@ async fn resolve(
 pub async fn preview_alter_table(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     diff: TableDiff,
 ) -> Result<Vec<String>, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .build_alter_table_ddl(&TableRef { database: None, schema: None, table }, &diff)
+        .build_alter_table_ddl(&TableRef { database: None, schema, table }, &diff)
         .await
         .map_err(AppError::from)
 }
@@ -38,6 +39,7 @@ pub async fn preview_alter_table(
 pub async fn preview_add_column(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     column: ColumnSpec,
 ) -> Result<Vec<String>, AppError> {
@@ -46,7 +48,7 @@ pub async fn preview_add_column(
         dropped_columns: vec![],
         renamed_columns: vec![],
     };
-    preview_alter_table(registry, connection_id, table, diff).await
+    preview_alter_table(registry, connection_id, schema, table, diff).await
 }
 
 #[tauri::command]
@@ -54,6 +56,7 @@ pub async fn preview_add_column(
 pub async fn preview_drop_column(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
+    schema: Option<String>,
     table: String,
     column: String,
 ) -> Result<Vec<String>, AppError> {
@@ -62,7 +65,7 @@ pub async fn preview_drop_column(
         dropped_columns: vec![column],
         renamed_columns: vec![],
     };
-    preview_alter_table(registry, connection_id, table, diff).await
+    preview_alter_table(registry, connection_id, schema, table, diff).await
 }
 
 #[tauri::command]

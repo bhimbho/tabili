@@ -1,8 +1,8 @@
 import { useIndexes } from "../../hooks/useSchema";
 import { DataTable, Empty, Panel, PanelState } from "./panels";
 
-export function IndexesView({ connectionId, table }: { connectionId: string; table: string }) {
-  const { data: indexes, isLoading, error } = useIndexes(connectionId, table);
+export function IndexesView({ connectionId, table, schema }: { connectionId: string; table: string; schema: string | null }) {
+  const { data: indexes, isLoading, error } = useIndexes(connectionId, table, schema ?? undefined);
 
   if (isLoading || error) {
     return (

@@ -5,6 +5,8 @@ export interface OpenTab {
   connectionId: string;
   title: string;
   kind: "table" | "query";
+  /** null for SQLite / driver default. */
+  schema: string | null;
 }
 
 interface TabsState {
@@ -12,6 +14,7 @@ interface TabsState {
   activeTabId: string | null;
   openTab: (tab: OpenTab) => void;
   closeTab: (id: string) => void;
+  closeTabsForConnection: (connectionId: string) => void;
   setActiveTab: (id: string) => void;
 }
 
@@ -32,5 +35,15 @@ export const useTabsStore = create<TabsState>((set, get) => ({
         activeTabId: wasActive ? (tabs[tabs.length - 1]?.id ?? null) : state.activeTabId,
       };
     }),
+  closeTabsForConnection: (connectionId) =>
+    set((state) => {
+      const tabs = state.tabs.filter((t) => t.connectionId !== connectionId);
+      const activeStillOpen = tabs.some((t) => t.id === state.activeTabId);
+      return {
+        tabs,
+        activeTabId: activeStillOpen ? state.activeTabId : (tabs[tabs.length - 1]?.id ?? null),
+      };
+    }),
+
   setActiveTab: (id) => set({ activeTabId: id }),
 }));

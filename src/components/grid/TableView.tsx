@@ -15,6 +15,7 @@ import { useChangesStore } from "../../stores/changesStore";
 interface TableViewProps {
   connectionId: string;
   table: string;
+  schema: string | null;
 }
 
 const TABS = ["data", "structure", "indexes", "triggers", "ddl"] as const;
@@ -39,15 +40,15 @@ function TabStrip({ tab, onChange }: { tab: TableTab; onChange: (t: TableTab) =>
   );
 }
 
-export function TableView({ connectionId, table }: TableViewProps) {
+export function TableView({ connectionId, table, schema }: TableViewProps) {
   const [tab, setTab] = useState<TableTab>("data");
   const [drafts, setDrafts] = useState<DraftFilter[]>([]);
   const [query, setQuery] = useState<TableQuery>({ filters: [], orderBy: null, orderDesc: false });
   const [reviewOpen, setReviewOpen] = useState(false);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
 
-  const { data: columnInfos, error: columnsError } = useColumns(connectionId, table);
-  const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, query);
+  const { data: columnInfos, error: columnsError } = useColumns(connectionId, table, schema ?? undefined);
+  const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, schema, query);
   const addInsert = useChangesStore((s) => s.addInsert);
 
   const hasPk = (columnInfos ?? []).some((c) => c.isPrimaryKey);
@@ -95,7 +96,7 @@ export function TableView({ connectionId, table }: TableViewProps) {
         rowCount={rowPage?.rows.length ?? 0}
         hasMore={rowPage?.hasMore ?? false}
         busy={isFetching}
-        onAddRow={() => addInsert({ connectionId, table }, crypto.randomUUID())}
+        onAddRow={() => addInsert({ connectionId, table, schema }, crypto.randomUUID())}
         onAddColumn={() => {
           setTab("structure");
           setAddColumnOpen(true);
@@ -118,13 +119,14 @@ export function TableView({ connectionId, table }: TableViewProps) {
           <StructureView
             connectionId={connectionId}
             table={table}
+            schema={schema}
             addOpen={addColumnOpen}
             onAddOpenChange={setAddColumnOpen}
           />
         )}
-        {tab === "indexes" && <IndexesView connectionId={connectionId} table={table} />}
-        {tab === "triggers" && <TriggersView connectionId={connectionId} table={table} />}
-        {tab === "ddl" && <DdlView connectionId={connectionId} table={table} />}
+        {tab === "indexes" && <IndexesView connectionId={connectionId} table={table} schema={schema} />}
+        {tab === "triggers" && <TriggersView connectionId={connectionId} table={table} schema={schema} />}
+        {tab === "ddl" && <DdlView connectionId={connectionId} table={table} schema={schema} />}
         {tab === "data" && (
           <>
             {isLoading && (
@@ -141,6 +143,7 @@ export function TableView({ connectionId, table }: TableViewProps) {
               <DataGrid
                 connectionId={connectionId}
                 table={table}
+                schema={schema}
                 columns={rowPage.columns}
                 rows={rowPage.rows}
                 columnInfos={columnInfos ?? []}

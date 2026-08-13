@@ -1,8 +1,8 @@
 import { useTriggers } from "../../hooks/useSchema";
 import { DataTable, Empty, Panel, PanelState } from "./panels";
 
-export function TriggersView({ connectionId, table }: { connectionId: string; table: string }) {
-  const { data: triggers, isLoading, error } = useTriggers(connectionId, table);
+export function TriggersView({ connectionId, table, schema }: { connectionId: string; table: string; schema: string | null }) {
+  const { data: triggers, isLoading, error } = useTriggers(connectionId, table, schema ?? undefined);
 
   if (isLoading || error) {
     return (

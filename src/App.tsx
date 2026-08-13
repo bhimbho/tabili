@@ -18,7 +18,13 @@ function MainPane() {
     );
   }
 
-  return <TableView connectionId={activeTab.connectionId} table={activeTab.title} />;
+  return (
+    <TableView
+      connectionId={activeTab.connectionId}
+      table={activeTab.title}
+      schema={activeTab.schema}
+    />
+  );
 }
 
 function App() {

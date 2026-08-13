@@ -4,6 +4,7 @@ import type { DbValue } from "../bindings";
 export interface RowContext {
   connectionId: string;
   table: string;
+  schema: string | null;
 }
 
 export interface PendingEdit extends RowContext {
