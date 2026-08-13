@@ -22,6 +22,14 @@ export const commands = {
 	listSavedConnections: () => typedError<SavedConnectionRecord[], AppError>(__TAURI_INVOKE("list_saved_connections")),
 	connectSaved: (id: string) => typedError<OpenedConnection, AppError>(__TAURI_INVOKE("connect_saved", { id })),
 	deleteSavedConnection: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_saved_connection", { id })),
+	listDatabases: (connectionId: string) => typedError<DatabaseInfo[], AppError>(__TAURI_INVOKE("list_databases", { connectionId })),
+	/**
+	 *  Postgres binds a connection to one database for its lifetime, so switching
+	 *  means opening a fresh pool against the target and swapping it in under the
+	 *  same connection id — tabs and saved metadata keep working unchanged. The
+	 *  saved record is updated so the choice survives a restart.
+	 */
+	switchDatabase: (connectionId: string, database: string) => typedError<null, AppError>(__TAURI_INVOKE("switch_database", { connectionId, database })),
 	listSchemas: (connectionId: string) => typedError<SchemaInfo[], AppError>(__TAURI_INVOKE("list_schemas", { connectionId })),
 	listTables: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema })),
 	listViews: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema })),
@@ -86,6 +94,10 @@ export type ColumnSpec = {
 	dataType: string,
 	nullable: boolean,
 	defaultValue: string | null,
+};
+
+export type DatabaseInfo = {
+	name: string,
 };
 
 /**

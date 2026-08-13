@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSchemas, useTables, useViews } from "../../hooks/useSchema";
+import { useDatabases, useSchemas, useTables, useViews } from "../../hooks/useSchema";
+import { commands } from "../../bindings";
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
+import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
 import { friendlyError } from "../../lib/errors";
@@ -49,6 +51,7 @@ export function ObjectPanel() {
   const activeSchema = useConnectionsStore((s) => s.activeSchema);
   const setActiveSchema = useConnectionsStore((s) => s.setActiveSchema);
   const openTab = useTabsStore((s) => s.openTab);
+  const closeTabsFor = useTabsStore((s) => s.closeTabsForConnection);
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<PanelTab>("items");
@@ -61,6 +64,24 @@ export function ObjectPanel() {
   const schema = connectionId ? activeSchema[connectionId] : undefined;
 
   const { data: schemas } = useSchemas(connected ? connectionId : null);
+  const { data: databases } = useDatabases(connected ? connectionId : null);
+  const { data: info } = useServerInfo(connected ? connectionId : null);
+  const [switching, setSwitching] = useState(false);
+
+  // Postgres can't change database in place, so the backend swaps the pool and
+  // everything scoped to this connection has to be refetched.
+  async function switchDatabase(name: string) {
+    if (!connectionId || name === info?.database) return;
+    setSwitching(true);
+    const result = await commands.switchDatabase(connectionId, name);
+    setSwitching(false);
+    if (result.status === "error") return;
+    closeTabsFor(connectionId);
+    setActiveSchema(connectionId, "");
+    for (const key of ["server-info", "schemas", "tables", "views", "rows", "columns"]) {
+      queryClient.invalidateQueries({ queryKey: [key, connectionId] });
+    }
+  }
   const { data: tables, isLoading, error } = useTables(connected ? connectionId : null, schema);
   const { data: views } = useViews(connected ? connectionId : null, schema);
 
@@ -206,13 +227,34 @@ export function ObjectPanel() {
         )}
       </div>
 
-      {tab === "items" && connected && schemas && schemas.length > 0 && (
-        <div className="shrink-0 border-t border-black/30 p-2">
-          <Select
-            value={schema ?? schemas[0]?.name ?? ""}
-            onChange={(v) => connectionId && setActiveSchema(connectionId, v)}
-            options={schemas.map((s) => ({ value: s.name, label: s.name }))}
-          />
+      {tab === "items" && connected && (
+        <div className="shrink-0 space-y-1.5 border-t border-black/30 p-2">
+          {databases && databases.length > 1 && (
+            <label className="block">
+              <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-neutral-600">
+                {switching ? "Switching…" : "Database"}
+              </span>
+              <Select
+                size="sm"
+                value={info?.database ?? databases[0]?.name ?? ""}
+                onChange={switchDatabase}
+                options={databases.map((d) => ({ value: d.name, label: d.name }))}
+              />
+            </label>
+          )}
+          {schemas && schemas.length > 0 && (
+            <label className="block">
+              <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-neutral-600">
+                Schema
+              </span>
+              <Select
+                size="sm"
+                value={schema || schemas[0]?.name || ""}
+                onChange={(v) => connectionId && setActiveSchema(connectionId, v)}
+                options={schemas.map((s) => ({ value: s.name, label: s.name }))}
+              />
+            </label>
+          )}
         </div>
       )}
 

@@ -20,6 +20,8 @@ pub fn run() {
         commands::connections::list_saved_connections,
         commands::connections::connect_saved,
         commands::connections::delete_saved_connection,
+        commands::connections::list_databases,
+        commands::connections::switch_database,
         commands::schema::list_schemas,
         commands::schema::list_tables,
         commands::schema::list_views,

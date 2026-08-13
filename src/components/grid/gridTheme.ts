@@ -51,5 +51,3 @@ export const darkGridTheme: Partial<Theme> = {
 export const EDIT_THEME = { bgCell: "#3a2c0a", textDark: "#fcd34d" };
 export const DELETE_THEME = { bgCell: "#3a1414", textDark: "#fca5a5" };
 export const INSERT_THEME = { bgCell: "#0c2f1e", textDark: "#86efac" };
-/** Foreign-key cells get the link colour so the jump affordance is discoverable. */
-export const FK_THEME = { textDark: "#818cf8" };
