@@ -129,6 +129,23 @@ impl AppStore {
             let _ = sqlx::query(stmt).execute(&self.pool).await;
         }
 
+        // Earlier builds stored "" for optional paths that were never filled in.
+        // An empty path is not the same as no path: the driver handed it to
+        // sqlx, which tried to open a file called "" and failed the connection
+        // with a bare "no such file or directory". Runs after the ALTERs above
+        // so the ssh_ columns exist by the time they're normalised.
+        for column in [
+            "host", "username", "database", "ssl_mode",
+            "ssl_key_path", "ssl_cert_path", "ssl_ca_path", "file_path",
+            "ssh_host", "ssh_username", "ssh_private_key_path",
+        ] {
+            let _ = sqlx::query(sqlx::AssertSqlSafe(format!(
+                "UPDATE saved_connections SET {column} = NULL WHERE TRIM({column}) = ''"
+            )))
+            .execute(&self.pool)
+            .await;
+        }
+
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS statement_log (
                 id TEXT PRIMARY KEY,

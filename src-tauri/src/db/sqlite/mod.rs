@@ -23,6 +23,7 @@ impl SqliteDriver {
         let path = config
             .file_path
             .as_deref()
+            .filter(|p| !p.is_empty())
             .ok_or_else(|| DbError::Connection("sqlite connection requires file_path".into()))?;
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(config.max_connections.max(1))
