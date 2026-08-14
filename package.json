@@ -2,12 +2,14 @@
   "name": "tabili",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "dmg": "bash scripts/build-dmg.sh"
   },
   "dependencies": {
     "@glideapps/glide-data-grid": "^6.0.3",

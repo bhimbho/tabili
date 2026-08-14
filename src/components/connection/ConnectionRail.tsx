@@ -26,19 +26,28 @@ function RailItem({ connection }: { connection: SavedConnection }) {
 
   const isActive = activeId === connection.id;
 
-  async function connect() {
+  /** `force` reconnects even when we still believe the connection is live, for
+   *  the case where the far end dropped it without us noticing yet. */
+  async function connect(force = false) {
     if (busy) return;
     setActive(connection.id);
-    if (connection.isConnected) return;
+    if (connection.isConnected && !force) return;
     setBusy(true);
     setError(null);
     const result = await commands.connectSaved(connection.id);
     setBusy(false);
     if (result.status === "error") {
       setError(result.error.message);
+      setConnected(connection.id, false);
       return;
     }
+    setError(null);
     setConnected(connection.id, true);
+    // The old pool's cached rows and schema belong to a connection that no
+    // longer exists.
+    for (const key of ["server-info", "databases", "schemas", "tables", "views", "rows"]) {
+      queryClient.invalidateQueries({ queryKey: [key, connection.id] });
+    }
   }
 
   async function disconnect() {
@@ -50,7 +59,10 @@ function RailItem({ connection }: { connection: SavedConnection }) {
   const items: MenuEntry[] = [
     connection.isConnected
       ? { label: "Disconnect", onSelect: disconnect }
-      : { label: "Connect", onSelect: connect },
+      : { label: "Connect", onSelect: () => connect() },
+    // Always offered: a connection dropped by the far end still looks live here
+    // until the next heartbeat, and waiting for that isn't obvious.
+    { label: "Reconnect", onSelect: () => connect(true) },
     // Editable whether or not it's connected; a live connection is reopened
     // with the new settings on save.
     { label: "Edit connection…", onSelect: () => openEdit(connection.id) },
@@ -71,7 +83,7 @@ function RailItem({ connection }: { connection: SavedConnection }) {
   return (
     <>
       <button
-        onClick={connect}
+        onClick={() => connect()}
         onContextMenu={menu.open}
         title={error ?? connection.name}
         className={clsx(

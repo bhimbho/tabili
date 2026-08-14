@@ -373,6 +373,15 @@ pub async fn connect_saved(
         }
     };
 
+    // Reconnecting over a connection the far end already dropped would otherwise
+    // insert straight over the stale entries, leaving the previous pool and SSH
+    // session running with nothing to close them. Torn down only now, so a
+    // failed reconnect above leaves the old connection intact.
+    if let Some(old) = registry.remove(&id).await {
+        let _ = old.close().await;
+    }
+    registry.remove_tunnel(&id).await;
+
     if let Some(tunnel) = tunnel {
         registry.insert_tunnel(id.clone(), tunnel).await;
     }

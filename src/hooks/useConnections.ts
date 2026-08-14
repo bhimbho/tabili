@@ -12,6 +12,12 @@ export function useSavedConnections() {
   });
 }
 
+/**
+ * Doubles as the connection heartbeat: it is the cheapest round trip to the
+ * server, so failing it is how a dropped connection gets noticed. Without the
+ * poll a link killed by the far end still looks connected until the next query,
+ * and the reconnect affordances stay disabled.
+ */
 export function useServerInfo(connectionId: string | null) {
   return useQuery({
     queryKey: ["server-info", connectionId],
@@ -21,7 +27,10 @@ export function useServerInfo(connectionId: string | null) {
       return result.data;
     },
     enabled: !!connectionId,
-    staleTime: 5 * 60_000,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
+    // One retry so a single blip doesn't declare the connection dead.
+    retry: 1,
   });
 }
 

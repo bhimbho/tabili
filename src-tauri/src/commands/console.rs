@@ -15,6 +15,18 @@ pub async fn server_info(
         .get(&connection_id)
         .await
         .ok_or_else(|| AppError::from(DbError::Connection("unknown connection".into())))?;
+
+    // This doubles as the UI's heartbeat. A dead SSH session would otherwise
+    // only surface once the query underneath it timed out, leaving the
+    // connection looking healthy for as long as that took.
+    if let Some(tunnel) = registry.get_tunnel(&connection_id).await {
+        if !tunnel.is_alive() {
+            return Err(AppError::from(DbError::Connection(
+                "the SSH tunnel has closed — reconnect to continue".into(),
+            )));
+        }
+    }
+
     driver.server_info().await.map_err(AppError::from)
 }
 
