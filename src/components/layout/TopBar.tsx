@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
@@ -22,6 +22,7 @@ export function TopBar() {
   const activeId = useConnectionsStore((s) => s.activeConnectionId);
   const connections = useConnectionsStore((s) => s.connections);
   const activeSchema = useConnectionsStore((s) => s.activeSchema);
+  const setConnected = useConnectionsStore((s) => s.setConnected);
   const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
   const { sidebarVisible, toggleSidebar, detailsVisible, toggleDetails } = useLayoutStore();
   const pendingCount = useChangesStore((s) => s.count());
@@ -32,7 +33,16 @@ export function TopBar() {
   const fetching = useIsFetching() > 0;
 
   const connection = connections.find((c) => c.id === activeId);
-  const { data: info } = useServerInfo(connection?.isConnected ? activeId : null);
+  const { data: info, error: infoError } = useServerInfo(
+    connection?.isConnected ? activeId : null,
+  );
+
+  // The heartbeat failing means the server (or the SSH tunnel under it) went
+  // away. Recording that is what re-enables Connect — the rail ignores clicks
+  // on something it still believes is connected.
+  useEffect(() => {
+    if (infoError && activeId) setConnected(activeId, false);
+  }, [infoError, activeId, setConnected]);
   const schema = activeId ? activeSchema[activeId] : undefined;
   const danger = isDanger(connection?.accentColor);
 

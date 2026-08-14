@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use russh::client::{self, Handle};
 use russh::keys::{load_secret_key, PrivateKeyWithHashAlg};
@@ -71,6 +72,12 @@ impl SshTunnel {
     pub async fn close(&self) {
         self.accept_task.abort();
         let _ = self.handle.disconnect(Disconnect::ByApplication, "", "en").await;
+    }
+
+    /// False once the SSH session has gone away, whether we closed it or the
+    /// far end did.
+    pub fn is_alive(&self) -> bool {
+        !self.handle.is_closed()
     }
 }
 
@@ -146,7 +153,19 @@ pub async fn open_tunnel(
     remote_host: &str,
     remote_port: u16,
 ) -> Result<SshTunnel, DbError> {
-    let config = Arc::new(client::Config::default());
+    let config = Arc::new(client::Config {
+        // russh sends no keepalives by default, so an idle tunnel is eventually
+        // reaped by the server's ClientAliveInterval or by a NAT dropping the
+        // mapping — the session then looks fine locally until the next query
+        // fails. A 30s heartbeat keeps it alive; three unanswered ones mean the
+        // link is genuinely gone and the session closes rather than hanging.
+        keepalive_interval: Some(Duration::from_secs(30)),
+        keepalive_max: 3,
+        // Database traffic is small and latency-sensitive; Nagle batching adds
+        // delay to every round trip through the tunnel.
+        nodelay: true,
+        ..client::Config::default()
+    });
     let handler = TofuHandler { host: cfg.host.clone(), port: cfg.port };
     let mut handle = client::connect(config, (cfg.host.as_str(), cfg.port), handler)
         .await
@@ -167,10 +186,26 @@ pub async fn open_tunnel(
     let remote_host = remote_host.to_string();
     let accept_task = tokio::spawn(async move {
         loop {
-            let (mut stream, addr) = match listener.accept().await {
+            // Without this the listener outlives the SSH session: TCP handshakes
+            // to the local port keep succeeding, so the pool believes it has
+            // connected while every byte goes nowhere. The timeout bounds how
+            // long a dead tunnel keeps answering.
+            let accepted = tokio::select! {
+                result = listener.accept() => result,
+                _ = tokio::time::sleep(Duration::from_secs(5)) => {
+                    if handle_for_accept.is_closed() {
+                        break;
+                    }
+                    continue;
+                }
+            };
+            let (mut stream, addr) = match accepted {
                 Ok(v) => v,
                 Err(_) => break,
             };
+            if handle_for_accept.is_closed() {
+                break;
+            }
             let handle = handle_for_accept.clone();
             let remote_host = remote_host.clone();
             tokio::spawn(async move {

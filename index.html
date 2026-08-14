@@ -7,7 +7,12 @@
     <title>tabili</title>
   </head>
 
-  <body>
+  <!-- macOS applies its own text substitution inside a WKWebView, so typing
+       "apple" into a field yields "Apple" and straight quotes become curly ones.
+       Identifiers and cell values must survive verbatim. All three attributes
+       are inherited by descendants, so setting them here covers every field,
+       including the grid's cell editor rendered into #portal below. -->
+  <body autocapitalize="off" autocorrect="off" spellcheck="false">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!-- glide-data-grid renders its cell editor overlay here; without this node
