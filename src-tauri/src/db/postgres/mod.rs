@@ -40,13 +40,13 @@ impl PostgresDriver {
                 .map_err(|_| DbError::Connection(format!("invalid ssl_mode: {mode}")))?;
             opts = opts.ssl_mode(mode);
         }
-        if let Some(ca) = &config.ssl_ca_path {
+        if let Some(ca) = config.ssl_ca_path.as_deref().filter(|p| !p.is_empty()) {
             opts = opts.ssl_root_cert(ca);
         }
-        if let Some(cert) = &config.ssl_cert_path {
+        if let Some(cert) = config.ssl_cert_path.as_deref().filter(|p| !p.is_empty()) {
             opts = opts.ssl_client_cert(cert);
         }
-        if let Some(key) = &config.ssl_key_path {
+        if let Some(key) = config.ssl_key_path.as_deref().filter(|p| !p.is_empty()) {
             opts = opts.ssl_client_key(key);
         }
 

@@ -46,18 +46,29 @@ pub struct OpenedConnection {
     pub color: Option<String>,
 }
 
+/// Treats an empty string as "not set".
+///
+/// A field the user never filled in can reach us as `""` rather than `None` —
+/// from the form, or from a saved row that stored an empty string. Passing that
+/// through is not harmless: sqlx reads a certificate path eagerly, so
+/// `Some("")` makes it open a file named `""` and fail with a bare
+/// "no such file or directory" that says nothing about which setting caused it.
+fn present(value: &Option<String>) -> Option<String> {
+    value.as_ref().filter(|s| !s.trim().is_empty()).cloned()
+}
+
 fn config_from_request(request: &NewConnectionRequest, password: Option<String>) -> ConnectionConfig {
     ConnectionConfig {
         host: request.host.clone().unwrap_or_default(),
         port: request.port.unwrap_or_default(),
         username: request.username.clone().unwrap_or_default(),
         password,
-        database: request.database.clone(),
-        ssl_mode: request.ssl_mode.clone(),
-        ssl_key_path: request.ssl_key_path.clone(),
-        ssl_cert_path: request.ssl_cert_path.clone(),
-        ssl_ca_path: request.ssl_ca_path.clone(),
-        file_path: request.file_path.clone(),
+        database: present(&request.database),
+        ssl_mode: present(&request.ssl_mode),
+        ssl_key_path: present(&request.ssl_key_path),
+        ssl_cert_path: present(&request.ssl_cert_path),
+        ssl_ca_path: present(&request.ssl_ca_path),
+        file_path: present(&request.file_path),
         max_connections: 5,
     }
 }
@@ -68,12 +79,12 @@ fn config_from_record(record: &SavedConnectionRecord, password: Option<String>) 
         port: record.port.unwrap_or_default(),
         username: record.username.clone().unwrap_or_default(),
         password,
-        database: record.database.clone(),
-        ssl_mode: record.ssl_mode.clone(),
-        ssl_key_path: record.ssl_key_path.clone(),
-        ssl_cert_path: record.ssl_cert_path.clone(),
-        ssl_ca_path: record.ssl_ca_path.clone(),
-        file_path: record.file_path.clone(),
+        database: present(&record.database),
+        ssl_mode: present(&record.ssl_mode),
+        ssl_key_path: present(&record.ssl_key_path),
+        ssl_cert_path: present(&record.ssl_cert_path),
+        ssl_ca_path: present(&record.ssl_ca_path),
+        file_path: present(&record.file_path),
         max_connections: 5,
     }
 }
@@ -137,13 +148,13 @@ pub async fn open_connection(
     let mut config = config_from_request(&request, request.password.clone());
     let tunnel = open_tunnel_if_needed(
         request.ssh_enabled,
-        request.ssh_host.as_deref(),
+        present(&request.ssh_host).as_deref(),
         request.ssh_port,
-        request.ssh_username.as_deref(),
-        request.ssh_password.clone(),
+        present(&request.ssh_username).as_deref(),
+        present(&request.ssh_password),
         request.ssh_use_key,
-        request.ssh_private_key_path.as_deref(),
-        request.ssh_private_key_passphrase.clone(),
+        present(&request.ssh_private_key_path).as_deref(),
+        present(&request.ssh_private_key_passphrase),
         &mut config,
     )
     .await?;
@@ -166,21 +177,21 @@ pub async fn open_connection(
             name: request.name.clone(),
             dialect: request.dialect,
             color: request.color.clone(),
-            host: request.host.clone(),
+            host: present(&request.host),
             port: request.port,
-            username: request.username.clone(),
-            database: request.database.clone(),
-            ssl_mode: request.ssl_mode.clone(),
-            ssl_key_path: request.ssl_key_path.clone(),
-            ssl_cert_path: request.ssl_cert_path.clone(),
-            ssl_ca_path: request.ssl_ca_path.clone(),
-            file_path: request.file_path.clone(),
+            username: present(&request.username),
+            database: present(&request.database),
+            ssl_mode: present(&request.ssl_mode),
+            ssl_key_path: present(&request.ssl_key_path),
+            ssl_cert_path: present(&request.ssl_cert_path),
+            ssl_ca_path: present(&request.ssl_ca_path),
+            file_path: present(&request.file_path),
             ssh_enabled: request.ssh_enabled,
-            ssh_host: request.ssh_host.clone(),
+            ssh_host: present(&request.ssh_host),
             ssh_port: request.ssh_port,
-            ssh_username: request.ssh_username.clone(),
+            ssh_username: present(&request.ssh_username),
             ssh_use_key: request.ssh_use_key,
-            ssh_private_key_path: request.ssh_private_key_path.clone(),
+            ssh_private_key_path: present(&request.ssh_private_key_path),
         })
         .await
         .map_err(AppError::from)?;
@@ -244,21 +255,21 @@ pub async fn update_connection(
         name: request.name.clone(),
         dialect: request.dialect,
         color: request.color.clone(),
-        host: request.host.clone(),
+        host: present(&request.host),
         port: request.port,
-        username: request.username.clone(),
-        database: request.database.clone(),
-        ssl_mode: request.ssl_mode.clone(),
-        ssl_key_path: request.ssl_key_path.clone(),
-        ssl_cert_path: request.ssl_cert_path.clone(),
-        ssl_ca_path: request.ssl_ca_path.clone(),
-        file_path: request.file_path.clone(),
+        username: present(&request.username),
+        database: present(&request.database),
+        ssl_mode: present(&request.ssl_mode),
+        ssl_key_path: present(&request.ssl_key_path),
+        ssl_cert_path: present(&request.ssl_cert_path),
+        ssl_ca_path: present(&request.ssl_ca_path),
+        file_path: present(&request.file_path),
         ssh_enabled: request.ssh_enabled,
-        ssh_host: request.ssh_host.clone(),
+        ssh_host: present(&request.ssh_host),
         ssh_port: request.ssh_port,
-        ssh_username: request.ssh_username.clone(),
+        ssh_username: present(&request.ssh_username),
         ssh_use_key: request.ssh_use_key,
-        ssh_private_key_path: request.ssh_private_key_path.clone(),
+        ssh_private_key_path: present(&request.ssh_private_key_path),
     };
 
     for (supplied, save) in [
@@ -352,12 +363,12 @@ pub async fn connect_saved(
     let ssh_key_passphrase = credentials::get_ssh_key_passphrase(&id).map_err(AppError::from)?;
     let tunnel = open_tunnel_if_needed(
         record.ssh_enabled,
-        record.ssh_host.as_deref(),
+        present(&record.ssh_host).as_deref(),
         record.ssh_port,
-        record.ssh_username.as_deref(),
+        present(&record.ssh_username).as_deref(),
         ssh_password,
         record.ssh_use_key,
-        record.ssh_private_key_path.as_deref(),
+        present(&record.ssh_private_key_path).as_deref(),
         ssh_key_passphrase,
         &mut config,
     )
@@ -487,4 +498,64 @@ pub async fn close_connection(
     }
     registry.remove_tunnel(&connection_id).await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record_with_empty_paths() -> SavedConnectionRecord {
+        SavedConnectionRecord {
+            id: "id".into(),
+            name: "n".into(),
+            dialect: SqlDialect::Postgres,
+            color: None,
+            host: Some("db.internal".into()),
+            port: Some(5432),
+            username: Some("app".into()),
+            database: Some(String::new()),
+            ssl_mode: Some("prefer".into()),
+            // How older builds persisted "the user never chose a file".
+            ssl_key_path: Some(String::new()),
+            ssl_cert_path: Some(String::new()),
+            ssl_ca_path: Some(String::new()),
+            file_path: Some(String::new()),
+            ssh_enabled: false,
+            ssh_host: Some(String::new()),
+            ssh_port: None,
+            ssh_username: Some(String::new()),
+            ssh_use_key: false,
+            ssh_private_key_path: Some(String::new()),
+        }
+    }
+
+    /// An empty certificate path reached sqlx as `Some("")`, which it tried to
+    /// open as a file — failing the connection with "no such file or directory"
+    /// and no hint as to which setting was at fault.
+    #[test]
+    fn empty_saved_paths_are_treated_as_unset() {
+        let config = config_from_record(&record_with_empty_paths(), None);
+        assert_eq!(config.ssl_ca_path, None);
+        assert_eq!(config.ssl_cert_path, None);
+        assert_eq!(config.ssl_key_path, None);
+        assert_eq!(config.file_path, None);
+        assert_eq!(config.database, None);
+        // Real values still survive.
+        assert_eq!(config.host, "db.internal");
+        assert_eq!(config.ssl_mode.as_deref(), Some("prefer"));
+    }
+
+    #[test]
+    fn whitespace_only_paths_are_also_unset() {
+        let mut record = record_with_empty_paths();
+        record.ssl_ca_path = Some("   ".into());
+        assert_eq!(config_from_record(&record, None).ssl_ca_path, None);
+    }
+
+    #[test]
+    fn present_keeps_real_values_intact() {
+        assert_eq!(present(&Some("/tmp/ca.pem".into())), Some("/tmp/ca.pem".into()));
+        assert_eq!(present(&None), None);
+        assert_eq!(present(&Some(String::new())), None);
+    }
 }
