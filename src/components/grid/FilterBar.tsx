@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ColumnInfo, ColumnFilter, DbValue, FilterOperator } from "../../bindings";
 import { Select } from "../ui/Select";
 import { PlusIcon } from "../ui/icons";
@@ -76,6 +76,26 @@ const iconBtn =
 
 export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, generatedSql }: FilterBarProps) {
   const [showSql, setShowSql] = useState(false);
+  // A newly added filter row gets the caret, so adding one from a column
+  // header's context menu leaves you typing the value straight away.
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const [focusIndex, setFocusIndex] = useState<number | null>(null);
+  const previousCount = useRef(drafts.length);
+
+  useEffect(() => {
+    // Rows added from outside this component (the column header menu) land at
+    // the end; insertAfter names its index itself.
+    if (drafts.length > previousCount.current && focusIndex === null) {
+      setFocusIndex(drafts.length - 1);
+    }
+    previousCount.current = drafts.length;
+  }, [drafts.length, focusIndex]);
+
+  useEffect(() => {
+    if (focusIndex === null) return;
+    inputs.current[focusIndex]?.focus();
+    setFocusIndex(null);
+  }, [focusIndex]);
 
   function update(i: number, patch: Partial<DraftFilter>) {
     onChange(drafts.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -85,6 +105,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
     const next = [...drafts];
     next.splice(i + 1, 0, newDraft(columns));
     onChange(next);
+    setFocusIndex(i + 1);
   }
 
   function removeAt(i: number) {
@@ -140,6 +161,9 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
               />
             </div>
             <input
+              ref={(el) => {
+                inputs.current[i] = el;
+              }}
               value={d.value}
               disabled={NO_VALUE.includes(d.operator)}
               onChange={(e) => update(i, { value: e.target.value })}

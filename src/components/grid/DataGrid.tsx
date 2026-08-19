@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DataEditor, {
   GridCellKind,
   CompactSelection,
+  type DataEditorRef,
   type GridCell,
   type GridColumn,
   type GridSelection,
@@ -28,7 +29,9 @@ interface DataGridProps {
   schema: string | null;
   sortColumn?: string | null;
   sortDesc?: boolean;
-  onToggleSort?: (column: string) => void;
+  onSort?: (column: string, desc: boolean) => void;
+  /** Opens a filter row targeting this column, left for the user to fill in. */
+  onAddFilter?: (column: string) => void;
   foreignKeys?: FkMap;
   onFollowForeignKey?: (target: { table: string; column: string }, value: DbValue) => void;
   onActiveRowChange?: (row: Record<string, DbValue> | null) => void;
@@ -106,7 +109,8 @@ export function DataGrid({
   columnInfos,
   sortColumn,
   sortDesc,
-  onToggleSort,
+  onSort,
+  onAddFilter,
   foreignKeys = {},
   onFollowForeignKey,
   onActiveRowChange,
@@ -116,8 +120,16 @@ export function DataGrid({
     columns: CompactSelection.empty(),
   });
 
+  const gridRef = useRef<DataEditorRef>(null);
+  // Rows put on an in-app clipboard by Cmd+C. A ref rather than state: nothing
+  // renders from it, and the system clipboard can't hold DbValues — round-tripping
+  // rows through text would lose their types.
+  const rowClipboard = useRef<Record<string, DbValue>[]>([]);
+
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
-  const [menuTarget, setMenuTarget] = useState<{ col: number; row: number } | null>(null);
+  const [menuTarget, setMenuTarget] = useState<
+    { kind: "cell" | "header"; col: number; row: number } | null
+  >(null);
 
   const edits = useChangesStore((s) => s.edits);
   const inserts = useChangesStore((s) => s.inserts);
@@ -258,6 +270,35 @@ export function DataGrid({
     [ordered, rows, insertRows, hasPk, extractPk, setEdit, setInsertValue, connectionId, table],
   );
 
+  /**
+   * Stages copies of `sources` as pending inserts and returns the grid index of
+   * the first one.
+   *
+   * `keepPrimaryKeys` is the difference between the two ways of copying a row.
+   * Pasting keeps them, so the duplicate is visible as a duplicate and you fix
+   * the key before committing; the Duplicate row command drops them so the
+   * server assigns fresh ones.
+   */
+  const stageCopies = useCallback(
+    (sources: Record<string, DbValue>[], keepPrimaryKeys: boolean) => {
+      const ctx = { connectionId, table, schema };
+      const firstIndex = rows.length + insertRows.length;
+      for (const source of sources) {
+        const tempId = crypto.randomUUID();
+        addInsert(ctx, tempId);
+        for (const name of columns) {
+          if (!keepPrimaryKeys && pkColumns.includes(name)) continue;
+          // NULLs are carried over as NULL rather than left out: a copy should
+          // match its source, not pick up whatever default the column has.
+          const cell = source[name];
+          if (cell !== undefined) setInsertValue(tempId, ctx, name, cell);
+        }
+      }
+      return firstIndex;
+    },
+    [connectionId, table, schema, rows.length, insertRows.length, columns, pkColumns, addInsert, setInsertValue],
+  );
+
   const drawCell = useCallback(
     (args: {
       ctx: CanvasRenderingContext2D;
@@ -310,15 +351,32 @@ export function DataGrid({
     (cell: Item, event: { preventDefault: () => void; bounds: { x: number; y: number } }) => {
       event.preventDefault();
       const [col, rowIdx] = cell;
-      setMenuTarget({ col, row: rowIdx });
+      setMenuTarget({ kind: "cell", col, row: rowIdx });
       setMenuPos({ x: event.bounds.x, y: event.bounds.y });
     },
     [],
   );
 
+  const onHeaderContextMenu = useCallback(
+    (col: number, event: { preventDefault: () => void; bounds: { x: number; y: number; height: number } }) => {
+      event.preventDefault();
+      setMenuTarget({ kind: "header", col, row: -1 });
+      // Below the header rather than over it, so the column stays visible while
+      // you pick an action against it.
+      setMenuPos({ x: event.bounds.x, y: event.bounds.y + event.bounds.height });
+    },
+    [],
+  );
+
+  // Clicking a header sorts by it; clicking the column already sorted flips it.
+  const toggleSort = useCallback(
+    (column: string) => onSort?.(column, column === sortColumn ? !sortDesc : false),
+    [onSort, sortColumn, sortDesc],
+  );
+
   const onHeaderClicked = useCallback(
-    (col: number) => onToggleSort?.(ordered[col]),
-    [onToggleSort, ordered],
+    (col: number) => toggleSort(ordered[col]),
+    [toggleSort, ordered],
   );
 
   const menuItems: MenuEntry[] = useMemo(() => {
@@ -330,6 +388,17 @@ export function DataGrid({
     const value = row?.[columnName];
 
     const copy = (text: string) => navigator.clipboard.writeText(text);
+
+    if (menuTarget.kind === "header") {
+      return [
+        { label: `Add filter on ${columnName}`, onSelect: () => onAddFilter?.(columnName) },
+        null,
+        { label: "Sort ascending", onSelect: () => onSort?.(columnName, false) },
+        { label: "Sort descending", onSelect: () => onSort?.(columnName, true) },
+        null,
+        { label: "Copy column name", onSelect: () => copy(columnName) },
+      ];
+    }
 
     return [
       { label: "Copy cell", disabled: !row, onSelect: () => row && copy(displayValue(value)) },
@@ -351,19 +420,7 @@ export function DataGrid({
       {
         label: "Duplicate row",
         disabled: !row,
-        onSelect: () => {
-          if (!row) return;
-          const tempId = crypto.randomUUID();
-          const ctx = { connectionId, table, schema };
-          addInsert(ctx, tempId);
-          // Primary keys are left blank so the server assigns fresh ones rather
-          // than the copy colliding with the row it came from.
-          for (const info of columnInfos) {
-            if (info.isPrimaryKey) continue;
-            const cell = row[info.name];
-            if (cell !== undefined) setInsertValue(tempId, ctx, info.name, cell);
-          }
-        },
+        onSelect: () => row && stageCopies([row], false),
       },
       null,
       {
@@ -383,7 +440,8 @@ export function DataGrid({
         },
       },
       null,
-      { label: `Sort by ${columnName}`, onSelect: () => onToggleSort?.(columnName) },
+      { label: `Sort by ${columnName}`, onSelect: () => toggleSort(columnName) },
+      { label: `Add filter on ${columnName}`, onSelect: () => onAddFilter?.(columnName) },
       ...(foreignKeys[columnName] && row && value && value.type !== "Null"
         ? [
             null,
@@ -410,12 +468,72 @@ export function DataGrid({
     ];
   }, [
     menuTarget, ordered, rows, insertRows, hasPk, extractPk, setEdit, removeInsert,
-    addInsert, setInsertValue, columnInfos, schema,
-    toggleDelete, onToggleSort, connectionId, table, foreignKeys, onFollowForeignKey,
+    stageCopies, schema, toggleSort, onSort, onAddFilter,
+    toggleDelete, connectionId, table, foreignKeys, onFollowForeignKey,
   ]);
 
   const onKeyDown = useCallback(
-    (event: { key: string; preventDefault: () => void }) => {
+    (event: {
+      key: string;
+      metaKey: boolean;
+      ctrlKey: boolean;
+      preventDefault: () => void;
+      cancel: () => void;
+    }) => {
+      const mod = event.metaKey || event.ctrlKey;
+      const range = selection.current?.range;
+      // A dragged-out block of cells is a cell copy; a single cell means the row
+      // it sits in, since clicking a cell selects its row too.
+      const isRange = range !== undefined && (range.width > 1 || range.height > 1);
+
+      if (mod && event.key === "c" && !isRange) {
+        const picked = selection.rows
+          .toArray()
+          .map((i) => (i < rows.length ? rows[i] : insertRows[i - rows.length]?.values))
+          .filter((r): r is Record<string, DbValue> => r !== undefined);
+        if (picked.length === 0) return;
+        // preventDefault stops the browser raising the copy event that glide
+        // listens for, so its cell copy doesn't run as well; cancel stops
+        // glide's own key handling.
+        event.preventDefault();
+        event.cancel();
+        rowClipboard.current = picked;
+        // The clipboard still gets the row as text, for pasting outside the app.
+        void navigator.clipboard.writeText(
+          picked.map((r) => ordered.map((c) => displayValue(r[c])).join("\t")).join("\n"),
+        );
+        return;
+      }
+
+      // A cell copy replaces whatever row was on the in-app clipboard, so a
+      // later paste doesn't resurrect a row copied minutes ago.
+      if (mod && event.key === "c" && isRange) {
+        rowClipboard.current = [];
+        return;
+      }
+
+      if (mod && event.key === "v" && rowClipboard.current.length > 0 && !isRange) {
+        event.preventDefault();
+        event.cancel();
+        const firstIndex = stageCopies(rowClipboard.current, true);
+        // Land on the primary key of the new row: it is a duplicate of the row
+        // it came from until you change it, so that is where you need to be.
+        const pkCol = Math.max(0, ordered.indexOf(pkColumns[0] ?? ordered[0]));
+        setSelection({
+          rows: CompactSelection.fromSingleSelection(firstIndex),
+          columns: CompactSelection.empty(),
+          current: {
+            cell: [pkCol, firstIndex],
+            range: { x: pkCol, y: firstIndex, width: 1, height: 1 },
+            rangeStack: [],
+          },
+        });
+        // After the render that adds the row — scrolling to a row the grid does
+        // not have yet is a no-op.
+        requestAnimationFrame(() => gridRef.current?.scrollTo(pkCol, firstIndex));
+        return;
+      }
+
       if ((event.key === "Delete" || event.key === "Backspace") && hasPk) {
         const selectedRows = selection.rows.toArray();
         if (selectedRows.length === 0) return;
@@ -427,7 +545,10 @@ export function DataGrid({
         }
       }
     },
-    [selection, rows, hasPk, extractPk, toggleDelete, connectionId, table],
+    [
+      selection, rows, insertRows, ordered, pkColumns, stageCopies, hasPk, extractPk,
+      toggleDelete, connectionId, table, schema,
+    ],
   );
 
   if (columns.length === 0) {
@@ -439,12 +560,14 @@ export function DataGrid({
   return (
     <>
     <DataEditor
+      ref={gridRef}
       getCellContent={getCellContent}
       onCellEdited={onCellEdited}
       onCellContextMenu={onCellContextMenu}
       onCellClicked={onCellClicked}
       drawCell={drawCell}
       onHeaderClicked={onHeaderClicked}
+      onHeaderContextMenu={onHeaderContextMenu}
       columns={gridColumns}
       rows={rows.length + insertRows.length}
       // Numbers rather than checkboxes: the number is still clickable to
@@ -456,6 +579,10 @@ export function DataGrid({
       // Returning true lets glide split the clipboard by tabs/newlines and feed
       // each cell through onCellEdited, which stages them like any other edit.
       onPaste={(target, values) => {
+        // A row copy is served by onKeyDown. If the browser raised the paste
+        // event regardless of the prevented default, don't also splice the
+        // clipboard text into the cell under the cursor.
+        if (rowClipboard.current.length > 0) return false;
         const [, rowIdx] = target;
         // Existing rows need a primary key to be writable; staged inserts don't.
         if (rowIdx < rows.length && !hasPk) return false;
