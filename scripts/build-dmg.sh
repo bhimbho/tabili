@@ -34,16 +34,30 @@ BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
 DMG_DIR="$BUNDLE_DIR/dmg"
 DMG_NAME="${PRODUCT}_${VERSION}_${ARCH}.dmg"
 
-echo "==> Building ${PRODUCT} ${VERSION} (${TARGET})"
-npx tauri build --target "$TARGET" --bundles app
-
 # bundle_dmg.sh and its support files are emitted by Tauri's bundler and live
 # under target/, so a cargo clean takes them with it. Asking for a dmg bundle
-# writes them back out; the Finder step then fails, which is expected and why
-# the failure is swallowed.
+# writes them back out; its Finder step then fails, which is expected.
+#
+# This runs BEFORE the app build on purpose. The failed step leaves a temporary
+# read-write image behind in the bundle directory, and packaging that instead of
+# the app produces a disk image containing a stray .dmg and no application —
+# which still mounts, so nothing downstream notices. Building the app afterwards
+# leaves the directory clean and current.
 if [[ ! -x "$DMG_DIR/bundle_dmg.sh" ]]; then
 	echo "==> Restoring bundle_dmg.sh (its Finder step is expected to fail)"
 	npx tauri build --target "$TARGET" --bundles dmg || true
+fi
+
+echo "==> Building ${PRODUCT} ${VERSION} (${TARGET})"
+npx tauri build --target "$TARGET" --bundles app
+
+# Any temporary image left by an interrupted or failed bundling run.
+rm -f "$BUNDLE_DIR"/macos/rw.*.dmg "$DMG_DIR"/rw.*.dmg
+
+if [[ ! -d "$BUNDLE_DIR/macos/${PRODUCT}.app" ]]; then
+	echo "FAILED: ${BUNDLE_DIR}/macos/${PRODUCT}.app was not produced" >&2
+	ls -la "$BUNDLE_DIR/macos" >&2 || true
+	exit 1
 fi
 
 echo "==> Packaging $DMG_NAME"
