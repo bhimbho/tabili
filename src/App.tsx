@@ -11,7 +11,11 @@ import { useSavedConnections } from "./hooks/useConnections";
 import { useMenuActions } from "./hooks/useMenuActions";
 
 function MainPane() {
-  const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
+  const activeConnectionId = useConnectionsStore((s) => s.activeConnectionId);
+  const tab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
+  // Between switching connection and the tab bar re-pointing the active tab,
+  // this would otherwise render the previous connection's table for a frame.
+  const activeTab = tab && tab.connectionId === activeConnectionId ? tab : undefined;
 
   if (!activeTab) {
     return (
@@ -23,7 +27,11 @@ function MainPane() {
   }
 
   return (
+    // Keyed by tab: without it React reuses one TableView across tabs, and its
+    // sort and filter state — column names from the previous table — carry over
+    // and fail the next table's query.
     <TableView
+      key={activeTab.id}
       connectionId={activeTab.connectionId}
       table={activeTab.title}
       schema={activeTab.schema}

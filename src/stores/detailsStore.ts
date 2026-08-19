@@ -31,7 +31,16 @@ export const useDetailsStore = create<DetailsState>((set) => ({
     set((state) => ({
       context,
       // Switching table invalidates whichever row was selected in the old one.
-      row: context && state.context?.table === context.table ? state.row : null,
+      // Compared with the connection and schema too: two connections routinely
+      // have a table of the same name, and matching on the name alone carried
+      // one server's row into the other's details pane.
+      row:
+        context &&
+        state.context?.table === context.table &&
+        state.context?.connectionId === context.connectionId &&
+        state.context?.schema === context.schema
+          ? state.row
+          : null,
     })),
   setRow: (row) => set({ row }),
 }));

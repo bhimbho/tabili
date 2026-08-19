@@ -65,9 +65,12 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
   const setReviewOpen = (open: boolean) =>
     open ? openDialog("preview-changes") : closeDialog();
   const [addColumnOpen, setAddColumnOpen] = useState(false);
+  // Reset to the first page whenever the result set itself changes, so a
+  // filter narrowing the table cannot leave you stranded past its last row.
+  const [page, setPage] = useState(0);
 
   const { data: columnInfos, error: columnsError } = useColumns(connectionId, table, schema ?? undefined);
-  const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, schema, query);
+  const { data: rowPage, isLoading, error, isFetching } = useTableRows(connectionId, table, schema, query, page);
   const addInsert = useChangesStore((s) => s.addInsert);
 
   const { data: fks } = useForeignKeys(connectionId, table, schema ?? undefined);
@@ -159,6 +162,7 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
   useEffect(() => () => setDetailsContext(null), [setDetailsContext]);
 
   function applyFilters() {
+    setPage(0);
     setQuery((q) => ({ ...q, filters: toColumnFilters(drafts, columnInfos ?? []) }));
   }
 
@@ -166,10 +170,12 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
   function applyOnly(index: number) {
     const next = drafts.map((d, i) => ({ ...d, enabled: i === index }));
     setDrafts(next);
+    setPage(0);
     setQuery((q) => ({ ...q, filters: toColumnFilters(next, columnInfos ?? []) }));
   }
 
   function toggleSort(column: string) {
+    setPage(0);
     setQuery((q) =>
       q.orderBy === column
         ? { ...q, orderDesc: !q.orderDesc }
@@ -186,6 +192,8 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
         columnsError={columnsError ? (columnsError as Error).message : null}
         rowCount={rowPage?.rows.length ?? 0}
         hasMore={rowPage?.hasMore ?? false}
+        page={page}
+        onPageChange={setPage}
         busy={isFetching}
         onAddRow={() => addInsert({ connectionId, table, schema }, crypto.randomUUID())}
         onAddColumn={() => {
