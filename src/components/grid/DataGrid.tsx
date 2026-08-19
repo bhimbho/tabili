@@ -126,6 +126,7 @@ export function DataGrid({
   const setInsertValue = useChangesStore((s) => s.setInsertValue);
   const toggleDelete = useChangesStore((s) => s.toggleDelete);
   const removeInsert = useChangesStore((s) => s.removeInsert);
+  const addInsert = useChangesStore((s) => s.addInsert);
 
   const pkColumns = useMemo(() => columnInfos.filter((c) => c.isPrimaryKey).map((c) => c.name), [columnInfos]);
   const hasPk = pkColumns.length > 0;
@@ -348,6 +349,24 @@ export function DataGrid({
       { label: "Copy column name", onSelect: () => copy(columnName) },
       null,
       {
+        label: "Duplicate row",
+        disabled: !row,
+        onSelect: () => {
+          if (!row) return;
+          const tempId = crypto.randomUUID();
+          const ctx = { connectionId, table, schema };
+          addInsert(ctx, tempId);
+          // Primary keys are left blank so the server assigns fresh ones rather
+          // than the copy colliding with the row it came from.
+          for (const info of columnInfos) {
+            if (info.isPrimaryKey) continue;
+            const cell = row[info.name];
+            if (cell !== undefined) setInsertValue(tempId, ctx, info.name, cell);
+          }
+        },
+      },
+      null,
+      {
         label: "Set NULL",
         disabled: !row || !hasPk,
         onSelect: () => {
@@ -391,6 +410,7 @@ export function DataGrid({
     ];
   }, [
     menuTarget, ordered, rows, insertRows, hasPk, extractPk, setEdit, removeInsert,
+    addInsert, setInsertValue, columnInfos, schema,
     toggleDelete, onToggleSort, connectionId, table, foreignKeys, onFollowForeignKey,
   ]);
 
@@ -427,7 +447,20 @@ export function DataGrid({
       onHeaderClicked={onHeaderClicked}
       columns={gridColumns}
       rows={rows.length + insertRows.length}
-      rowMarkers="checkbox"
+      // Numbers rather than checkboxes: the number is still clickable to
+      // select, but a row is normally selected just by clicking it (below).
+      rowMarkers="clickable-number"
+      // Enables Cmd+C over a selected range; glide reads the cells back through
+      // getCellContent and puts TSV on the clipboard.
+      getCellsForSelection={true}
+      // Returning true lets glide split the clipboard by tabs/newlines and feed
+      // each cell through onCellEdited, which stages them like any other edit.
+      onPaste={(target, values) => {
+        const [, rowIdx] = target;
+        // Existing rows need a primary key to be writable; staged inserts don't.
+        if (rowIdx < rows.length && !hasPk) return false;
+        return values.length > 0;
+      }}
       cellActivationBehavior="double-click"
       onColumnMoved={onColumnMoved}
       onColumnResize={onColumnResize}
@@ -437,8 +470,15 @@ export function DataGrid({
       // empty — which silently disables double-click-to-edit.
       gridSelection={selection}
       onGridSelectionChange={(next) => {
-        setSelection(next);
         const rowIdx = next.current?.cell[1];
+        // Clicking a cell selects its row too, so row actions have an obvious
+        // target without hunting for a checkbox. An existing multi-row
+        // selection is left alone so shift/ctrl picking still works.
+        const withRow =
+          rowIdx !== undefined && !next.rows.hasIndex(rowIdx)
+            ? { ...next, rows: CompactSelection.fromSingleSelection(rowIdx) }
+            : next;
+        setSelection(withRow);
         onActiveRowChange?.(
           rowIdx !== undefined && rowIdx < rows.length ? rows[rowIdx] : null,
         );
