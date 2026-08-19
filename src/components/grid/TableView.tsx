@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { DataGrid } from "./DataGrid";
 import { GridToolbar } from "./GridToolbar";
+import { GridFooter } from "./GridFooter";
 import { PendingChangesDialog } from "./PendingChangesDialog";
 import { FilterBar, toColumnFilters, type DraftFilter } from "./FilterBar";
 import { StructureView } from "../schema-editor/StructureView";
@@ -14,7 +15,7 @@ import { useTableRows, type TableQuery } from "../../hooks/useTableData";
 import { useChangesStore } from "../../stores/changesStore";
 import { useDetailsStore, type FkMap } from "../../stores/detailsStore";
 import { useTabsStore } from "../../stores/tabsStore";
-import type { DbValue } from "../../bindings";
+import type { DbValue, FilterOperator } from "../../bindings";
 import { useConsoleStore } from "../../stores/consoleStore";
 import { friendlyError } from "../../lib/errors";
 
@@ -174,27 +175,33 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
     setQuery((q) => ({ ...q, filters: toColumnFilters(next, columnInfos ?? []) }));
   }
 
-  function toggleSort(column: string) {
+  function sortBy(column: string, desc: boolean) {
     setPage(0);
-    setQuery((q) =>
-      q.orderBy === column
-        ? { ...q, orderDesc: !q.orderDesc }
-        : { ...q, orderBy: column, orderDesc: false },
+    setQuery((q) => ({ ...q, orderBy: column, orderDesc: desc }));
+  }
+
+  /** Right-clicking a column header stages a filter on it, ready to fill in. */
+  function addFilterForColumn(column: string) {
+    const type = (columnInfos?.find((c) => c.name === column)?.dataType ?? "").toLowerCase();
+    // Substring matching only makes sense for text; everything else starts as
+    // an exact comparison.
+    const operator: FilterOperator = /char|text|clob|string|enum|json|uuid/.test(type)
+      ? "Contains"
+      : "Equals";
+    setDrafts((prev) =>
+      // Right-clicking the same header twice should not stack up empty rows.
+      prev.some((d) => d.column === column && d.value === "")
+        ? prev
+        : [...prev, { column, operator, value: "", enabled: true }],
     );
   }
 
   return (
     <div className="flex h-full flex-col">
       <GridToolbar
-        tabStrip={<TabStrip tab={tab} onChange={setTab} />}
         tab={tab}
         hasPk={hasPk}
         columnsError={columnsError ? (columnsError as Error).message : null}
-        rowCount={rowPage?.rows.length ?? 0}
-        hasMore={rowPage?.hasMore ?? false}
-        page={page}
-        onPageChange={setPage}
-        busy={isFetching}
         onAddRow={() => addInsert({ connectionId, table, schema }, crypto.randomUUID())}
         onAddColumn={() => {
           setTab("structure");
@@ -255,7 +262,8 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
                 columnInfos={columnInfos ?? []}
                 sortColumn={query.orderBy}
                 sortDesc={query.orderDesc}
-                onToggleSort={toggleSort}
+                onSort={sortBy}
+                onAddFilter={addFilterForColumn}
                 foreignKeys={foreignKeys}
                 onFollowForeignKey={followForeignKey}
                 onActiveRowChange={setRow}
@@ -264,6 +272,17 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
           </>
         )}
       </div>
+
+      <GridFooter
+        showPaging={tab === "data"}
+        rowCount={rowPage?.rows.length ?? 0}
+        hasMore={rowPage?.hasMore ?? false}
+        page={page}
+        onPageChange={setPage}
+        busy={isFetching}
+      >
+        <TabStrip tab={tab} onChange={setTab} />
+      </GridFooter>
 
       <PendingChangesDialog open={reviewOpen} onOpenChange={setReviewOpen} />
     </div>

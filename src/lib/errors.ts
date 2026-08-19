@@ -8,10 +8,57 @@ interface Rule {
   message: (m: RegExpMatchArray) => string;
 }
 
+/**
+ * Recovers the offending column from a constraint name.
+ *
+ * Postgres reports the constraint, not the column, and the DETAIL line that
+ * names the value never reaches us. But the convention every migration tool
+ * follows — Prisma, Rails, Django, Postgres itself — is `<table>_<column>_key`,
+ * so the column is usually sitting right there in the name. Returns null when
+ * the name doesn't follow it, rather than guessing.
+ */
+function columnFromConstraint(constraint: string): string | null {
+  const match = constraint.match(/^.+?_(.+)_(?:key|unique|uniq|idx)$/i);
+  return match ? match[1] : null;
+}
+
+const uniqueViolation = (column: string | null, constraint?: string) =>
+  column
+    ? `"${column}" already has that value — it must be unique.`
+    : `That value already exists — it must be unique${constraint ? ` (${constraint})` : ""}.`;
+
 const MAPPINGS: Rule[] = [
   {
     match: /duplicate key value violates unique constraint "?([^"\s]+)"?/i,
-    message: () => "That value already exists — this column must be unique.",
+    message: (m) =>
+      /_pkey$/i.test(m[1])
+        ? "That primary key already exists — it must be unique."
+        : uniqueViolation(columnFromConstraint(m[1]), m[1]),
+  },
+  {
+    // MySQL: Duplicate entry 'x' for key 'organisations.slug' (or 'PRIMARY').
+    match: /duplicate entry '(?:[^']*)' for key '([^']+)'/i,
+    message: (m) => {
+      const key = m[1].split(".").pop() ?? m[1];
+      return key.toUpperCase() === "PRIMARY"
+        ? "That primary key already exists — it must be unique."
+        : uniqueViolation(columnFromConstraint(key) ?? key);
+    },
+  },
+  {
+    // SQLite: UNIQUE constraint failed: organisations.slug, organisations.name
+    match: /unique constraint failed: ([^\n]+)/i,
+    message: (m) => {
+      const columns = m[1]
+        .split(",")
+        .map((part) => part.trim().split(".").pop() ?? "")
+        .filter(Boolean);
+      return columns.length > 0
+        ? `${columns.map((c) => `"${c}"`).join(" and ")} already ${
+            columns.length > 1 ? "have" : "has"
+          } that value — ${columns.length > 1 ? "they" : "it"} must be unique.`
+        : uniqueViolation(null);
+    },
   },
   {
     match: /violates foreign key constraint/i,
