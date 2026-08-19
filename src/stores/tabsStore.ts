@@ -17,7 +17,7 @@ interface TabsState {
   openTab: (tab: OpenTab) => void;
   closeTab: (id: string) => void;
   closeTabsForConnection: (connectionId: string) => void;
-  setActiveTab: (id: string) => void;
+  setActiveTab: (id: string | null) => void;
 }
 
 export const useTabsStore = create<TabsState>((set, get) => ({

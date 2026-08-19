@@ -17,17 +17,25 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
 PRODUCT=$(node -p "require('./src-tauri/tauri.conf.json').productName")
-case "$(uname -m)" in
-	arm64) ARCH="aarch64" ;;
-	*) ARCH="$(uname -m)" ;;
+
+# Universal by default so one image runs on both Apple Silicon and Intel. An
+# arm64-only build will not start on an Intel Mac at all: Rosetta translates
+# x86_64 to ARM, never the other way. Override with TABILI_TARGET to build a
+# single-architecture image (e.g. aarch64-apple-darwin) when iterating.
+TARGET="${TABILI_TARGET:-universal-apple-darwin}"
+case "$TARGET" in
+	universal-apple-darwin) ARCH="universal" ;;
+	x86_64-apple-darwin) ARCH="x64" ;;
+	aarch64-apple-darwin) ARCH="aarch64" ;;
+	*) ARCH="$TARGET" ;;
 esac
 
-BUNDLE_DIR="src-tauri/target/release/bundle"
+BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
 DMG_DIR="$BUNDLE_DIR/dmg"
 DMG_NAME="${PRODUCT}_${VERSION}_${ARCH}.dmg"
 
-echo "==> Building ${PRODUCT} ${VERSION} (${ARCH})"
-npx tauri build --bundles app
+echo "==> Building ${PRODUCT} ${VERSION} (${TARGET})"
+npx tauri build --target "$TARGET" --bundles app
 
 # bundle_dmg.sh and its support files are emitted by Tauri's bundler and live
 # under target/, so a cargo clean takes them with it. Asking for a dmg bundle
@@ -35,7 +43,7 @@ npx tauri build --bundles app
 # the failure is swallowed.
 if [[ ! -x "$DMG_DIR/bundle_dmg.sh" ]]; then
 	echo "==> Restoring bundle_dmg.sh (its Finder step is expected to fail)"
-	npx tauri build --bundles dmg || true
+	npx tauri build --target "$TARGET" --bundles dmg || true
 fi
 
 echo "==> Packaging $DMG_NAME"
@@ -51,14 +59,77 @@ rm -f "$DMG_NAME"
 	"$DMG_NAME" \
 	../macos
 
+# Signing and notarizing, when credentials are present.
+#
+# Without them the build is ad-hoc signed, which macOS reports on another
+# machine as "tabili is damaged and can't be opened" — Gatekeeper cannot
+# validate the signature on a quarantined app, and says that rather than
+# anything useful. The recipient has to run `xattr -cr` to clear quarantine.
+#
+# Set APPLE_SIGNING_IDENTITY to a "Developer ID Application" certificate to sign,
+# and either APPLE_API_KEY_PATH + APPLE_API_KEY + APPLE_API_ISSUER (App Store
+# Connect key) or APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID (app-specific
+# password) to notarize. `tauri build` picks the identity up on its own for the
+# .app; the DMG has to be signed and notarized here because we package it
+# ourselves.
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+	echo "==> Signing disk image"
+	codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG_NAME"
+
+	if [[ -n "${APPLE_API_KEY_PATH:-}" ]]; then
+		echo "==> Notarizing (App Store Connect key)"
+		xcrun notarytool submit "$DMG_NAME" \
+			--key "$APPLE_API_KEY_PATH" \
+			--key-id "$APPLE_API_KEY" \
+			--issuer "$APPLE_API_ISSUER" \
+			--wait
+	elif [[ -n "${APPLE_ID:-}" ]]; then
+		echo "==> Notarizing (Apple ID)"
+		xcrun notarytool submit "$DMG_NAME" \
+			--apple-id "$APPLE_ID" \
+			--password "$APPLE_PASSWORD" \
+			--team-id "$APPLE_TEAM_ID" \
+			--wait
+	else
+		echo "    no notarization credentials set — signed only, Gatekeeper will still warn" >&2
+	fi
+
+	# Stapling attaches the ticket to the image so it validates offline.
+	xcrun stapler staple "$DMG_NAME" || echo "    stapling failed (not notarized?)" >&2
+else
+	echo "==> Unsigned (ad-hoc). Recipients must run: xattr -cr /Applications/${PRODUCT}.app"
+fi
+
 # A DMG whose root holds Contents/ instead of the .app mounts fine and installs
 # nothing, and the packaging step reports success either way — so verify.
 echo "==> Verifying"
 MOUNT=$(mktemp -d)
 hdiutil attach "$DMG_NAME" -nobrowse -mountpoint "$MOUNT" -quiet
 trap 'hdiutil detach "$MOUNT" -quiet 2>/dev/null || true; rmdir "$MOUNT" 2>/dev/null || true' EXIT
-if [[ ! -x "$MOUNT/${PRODUCT}.app/Contents/MacOS/${PRODUCT}" ]]; then
+BINARY="$MOUNT/${PRODUCT}.app/Contents/MacOS/${PRODUCT}"
+if [[ ! -x "$BINARY" ]]; then
 	echo "FAILED: ${PRODUCT}.app is missing or has no executable inside the image" >&2
 	exit 1
+fi
+
+# A universal build that quietly produced a single slice would run nowhere but
+# this machine, and nothing above would have said so.
+ARCHS=$(lipo -archs "$BINARY")
+echo "Architectures: $ARCHS"
+if [[ "$TARGET" == "universal-apple-darwin" ]]; then
+	for slice in arm64 x86_64; do
+		if [[ "$ARCHS" != *"$slice"* ]]; then
+			echo "FAILED: universal build is missing the $slice slice (got: $ARCHS)" >&2
+			exit 1
+		fi
+	done
+fi
+
+# What Gatekeeper itself will decide on the recipient's machine, rather than
+# assuming the signing step above was enough.
+if spctl -a -t exec -vv "$MOUNT/${PRODUCT}.app" 2>&1 | grep -q "accepted"; then
+	echo "Gatekeeper: accepted — opens without warnings"
+else
+	echo "Gatekeeper: rejected — recipients need 'xattr -cr /Applications/${PRODUCT}.app'"
 fi
 echo "OK: $(cd "$(dirname "$DMG_NAME")" && pwd)/$DMG_NAME"
