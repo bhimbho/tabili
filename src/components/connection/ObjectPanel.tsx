@@ -215,7 +215,7 @@ export function ObjectPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <DragRegion className="h-7 shrink-0" />
+      <DragRegion className="h-4 shrink-0" />
 
       <div className="flex shrink-0 items-stretch gap-1 px-2 pb-1.5">
         <button
