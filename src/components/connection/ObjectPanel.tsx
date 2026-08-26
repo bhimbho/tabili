@@ -214,7 +214,7 @@ export function ObjectPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-stretch gap-1 px-2 pt-1.5 pb-1.5">
+      <div className="flex shrink-0 items-stretch gap-1 px-2 pt-1.5 pb-3">
         <button
           title="Select database"
           onClick={() => {
