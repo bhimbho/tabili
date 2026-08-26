@@ -60,6 +60,54 @@ if [[ ! -d "$BUNDLE_DIR/macos/${PRODUCT}.app" ]]; then
 	exit 1
 fi
 
+# An unsigned build carries a quarantine attribute that Gatekeeper refuses to
+# open, so the DMG includes a one-click installer that copies the app, clears
+# the attribute, and launches it — no terminal, no manual xattr. This is a
+# convenience fallback for builds without a Developer ID; notarized builds get
+# the same script but it simply becomes a normal copy (xattr is a no-op when
+# there's nothing to clear).
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" ]]; then
+	echo "==> Signed build: skipping one-click installer helper"
+else
+	echo "==> Adding one-click installer for unsigned build"
+	INSTALLER="$BUNDLE_DIR/macos/Install ${PRODUCT}.command"
+	cat > "$INSTALLER" <<-EOF
+		#!/bin/bash
+		# One-click install for the unsigned tabili build.
+		# Copies the app to /Applications and clears the quarantine attribute that
+		# Gatekeeper sets on any downloaded app.
+		set -e
+		APP="${PRODUCT}.app"
+		SRC="\$(cd "\$(dirname "\$0")" && pwd)/\$APP"
+		DEST="/Applications/\$APP"
+
+		if [ ! -d "\$SRC" ]; then
+		  echo "Error: \$APP not found next to this installer."
+		  echo "Press Enter to close."
+		  read -r
+		  exit 1
+		fi
+
+		if [ -d "\$DEST" ]; then
+		  echo "Removing existing \$DEST"
+		  rm -rf "\$DEST"
+		fi
+
+		echo "Copying \$APP to /Applications …"
+		cp -R "\$SRC" "\$DEST"
+		echo "Clearing quarantine attribute …"
+		xattr -cr "\$DEST"
+		echo ""
+		echo "Done. Opening tabili …"
+		open "\$DEST"
+
+		echo ""
+		echo "Press Enter to close this window."
+		read -r
+	EOF
+	chmod +x "$INSTALLER"
+fi
+
 echo "==> Packaging $DMG_NAME"
 cd "$DMG_DIR"
 rm -f "$DMG_NAME"

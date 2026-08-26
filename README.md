@@ -39,13 +39,21 @@ npm run dmg
 
 Builds a release `.app` and packages it into `src-tauri/target/release/bundle/dmg/`, then verifies the image mounts with the app inside. Tauri's own DMG step cannot run non-interactively — it drives Finder via AppleScript for the window layout — so the script invokes the bundler's `--sandbox-safe` path directly.
 
-Builds are ad-hoc signed. macOS will refuse to open one transferred to another machine ("tabili is damaged") until the quarantine attribute is cleared:
+The DMG includes a **one-click installer** (`Install tabili.command`) that copies
+the app to `/Applications`, clears the quarantine attribute, and opens it — so
+recipients of an unsigned build don't need to touch a terminal.
+
+For an unsigned (ad-hoc signed) build, macOS still sets a quarantine attribute
+that Gatekeeper refuses to open without clearing:
 
 ```sh
 xattr -cr /Applications/tabili.app
 ```
 
-Distributing without that step requires a Developer ID signature and notarization.
+The one-click installer above does this automatically. Distributing without any
+quarantine friction at all requires a Developer ID signature and notarization,
+which the script performs automatically when `APPLE_SIGNING_IDENTITY` (and the
+notarization credentials) are set.
 
 ### Tests
 
