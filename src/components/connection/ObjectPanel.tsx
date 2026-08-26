@@ -59,9 +59,9 @@ export function ObjectPanel() {
   const closeTabsFor = useTabsStore((s) => s.closeTabsForConnection);
   const queryClient = useQueryClient();
   const dbPickerOpen = useDialogsStore((s) => s.dialog === "db-picker");
-  const setDbPickerOpen = useDialogsStore((s) => (open: boolean) =>
-    open ? s.open("db-picker") : s.close(),
-  );
+  const openDialog = useDialogsStore((s) => s.open);
+  const closeDialog = useDialogsStore((s) => s.close);
+  const setDbPickerOpen = (open: boolean) => (open ? openDialog("db-picker") : closeDialog());
 
   const [tab, setTab] = useState<PanelTab>("items");
   const [search, setSearch] = useState("");
