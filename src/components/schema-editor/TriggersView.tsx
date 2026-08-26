@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useTriggers } from "../../hooks/useSchema";
 import { DataTable, Empty, Panel, PanelState } from "./panels";
+import { TriggerDialog } from "./TriggerDialog";
 
 export function TriggersView({ connectionId, table, schema }: { connectionId: string; table: string; schema: string | null }) {
   const { data: triggers, isLoading, error } = useTriggers(connectionId, table, schema ?? undefined);
+  const [createOpen, setCreateOpen] = useState(false);
 
   if (isLoading || error) {
     return (
@@ -14,6 +17,16 @@ export function TriggersView({ connectionId, table, schema }: { connectionId: st
 
   return (
     <Panel>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Triggers</h3>
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+        >
+          + New trigger
+        </button>
+      </div>
+
       {triggers && triggers.length > 0 ? (
         <DataTable head={["Name", "Timing", "Event", "Definition"]}>
           {triggers.map((t) => (
@@ -30,6 +43,14 @@ export function TriggersView({ connectionId, table, schema }: { connectionId: st
       ) : (
         <Empty>No triggers on this table.</Empty>
       )}
+
+      <TriggerDialog
+        connectionId={connectionId}
+        table={table}
+        schema={schema}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
     </Panel>
   );
 }
