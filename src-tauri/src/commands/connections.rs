@@ -57,6 +57,17 @@ fn present(value: &Option<String>) -> Option<String> {
     value.as_ref().filter(|s| !s.trim().is_empty()).cloned()
 }
 
+fn normalize_database_name(name: &str) -> Result<String, DbError> {
+    let cleaned = name.trim();
+    if cleaned.is_empty() {
+        return Err(DbError::Connection("database name is required".into()));
+    }
+    if cleaned == "." || cleaned == ".." || cleaned.contains(['/', '\\', '\0']) {
+        return Err(DbError::Connection("invalid database name".into()));
+    }
+    Ok(cleaned.to_string())
+}
+
 fn config_from_request(request: &NewConnectionRequest, password: Option<String>) -> ConnectionConfig {
     ConnectionConfig {
         host: request.host.clone().unwrap_or_default(),
@@ -425,6 +436,48 @@ pub async fn list_databases(
 /// saved record is updated so the choice survives a restart.
 #[tauri::command]
 #[specta::specta]
+pub async fn create_database(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    database: String,
+) -> Result<(), AppError> {
+    let name = normalize_database_name(&database)?;
+    let driver = registry
+        .get(&connection_id)
+        .await
+        .ok_or_else(|| AppError::from(DbError::Connection("unknown connection".into())))?;
+    if driver.dialect() == SqlDialect::Sqlite {
+        return Err(AppError::from(DbError::Unsupported(
+            "SQLite connections hold a single database file".into(),
+        )));
+    }
+    driver.create_database(&name).await.map_err(AppError::from)?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn drop_database(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    database: String,
+) -> Result<(), AppError> {
+    let name = normalize_database_name(&database)?;
+    let driver = registry
+        .get(&connection_id)
+        .await
+        .ok_or_else(|| AppError::from(DbError::Connection("unknown connection".into())))?;
+    if driver.dialect() == SqlDialect::Sqlite {
+        return Err(AppError::from(DbError::Unsupported(
+            "SQLite connections hold a single database file".into(),
+        )));
+    }
+    driver.drop_database(&name).await.map_err(AppError::from)?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn switch_database(
     registry: State<'_, ConnectionRegistry>,
     app_store: State<'_, AppStore>,
@@ -557,5 +610,13 @@ mod tests {
         assert_eq!(present(&Some("/tmp/ca.pem".into())), Some("/tmp/ca.pem".into()));
         assert_eq!(present(&None), None);
         assert_eq!(present(&Some(String::new())), None);
+    }
+
+    #[test]
+    fn database_name_validation_rejects_blank_and_invalid_names() {
+        assert!(matches!(normalize_database_name(""), Err(_)));
+        assert!(matches!(normalize_database_name("   "), Err(_)));
+        assert!(matches!(normalize_database_name("my-db"), Ok(_)));
+        assert!(matches!(normalize_database_name("my db"), Ok(_)));
     }
 }

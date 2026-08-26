@@ -53,6 +53,8 @@ pub trait DatabaseDriver: Send + Sync {
 
     // --- schema introspection ---
     async fn list_databases(&self) -> Result<Vec<DatabaseInfo>, DbError>;
+    async fn create_database(&self, name: &str) -> Result<(), DbError>;
+    async fn drop_database(&self, name: &str) -> Result<(), DbError>;
     async fn list_schemas(&self, database: Option<&str>) -> Result<Vec<SchemaInfo>, DbError>;
     async fn list_tables(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError>;
     async fn list_views(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError>;

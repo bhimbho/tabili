@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { TableView } from "./components/grid/TableView";
+import { SqlEditor } from "./components/connection/SqlEditor";
 import { ExportDialog } from "./components/transfer/ExportDialog";
 import { ImportDialog } from "./components/transfer/ImportDialog";
 import { commands } from "./bindings";
@@ -24,6 +25,10 @@ function MainPane() {
         <p className="text-sm text-neutral-600">Pick a connection in the sidebar, then a table to browse it.</p>
       </div>
     );
+  }
+
+  if (activeTab.kind === "query") {
+    return <SqlEditor key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
 
   return (

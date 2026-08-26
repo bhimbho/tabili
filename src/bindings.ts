@@ -29,6 +29,8 @@ export const commands = {
 	 *  same connection id — tabs and saved metadata keep working unchanged. The
 	 *  saved record is updated so the choice survives a restart.
 	 */
+	createDatabase: (connectionId: string, database: string) => typedError<null, AppError>(__TAURI_INVOKE("create_database", { connectionId, database })),
+	dropDatabase: (connectionId: string, database: string) => typedError<null, AppError>(__TAURI_INVOKE("drop_database", { connectionId, database })),
 	switchDatabase: (connectionId: string, database: string) => typedError<null, AppError>(__TAURI_INVOKE("switch_database", { connectionId, database })),
 	/**
 	 *  Saves edits to an existing connection.
@@ -69,6 +71,20 @@ export const commands = {
 	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
 	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
 	deleteRows: (connectionId: string, schema: string | null, table: string, pks: { [key in string]: DbValue }[]) => typedError<string[], AppError>(__TAURI_INVOKE("delete_rows", { connectionId, schema, table, pks })),
+	runQuery: (connectionId: string, sql: string) => typedError<QueryHandle, AppError>(__TAURI_INVOKE("run_query", { connectionId, sql })),
+	fetchMore: (connectionId: string, executionId: string, n: number) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_more", { connectionId, executionId, n })),
+	cancelQuery: (connectionId: string, executionId: string) => typedError<null, AppError>(__TAURI_INVOKE("cancel_query", { connectionId, executionId })),
+	/**
+	 *  Splits a SQL script into individual statements, reusing the same logic that
+	 *  powers SQL-dump imports so the editor's "Run current" / "Run all" agree with
+	 *  what the importer would execute.
+	 */
+	splitSql: (script: string) => __TAURI_INVOKE<string[]>("split_sql", { script }),
+	/**
+	 *  Writes a text payload to a file the user picked via the save dialog. Used to
+	 *  persist a query as JSON (or any text) without pulling in a filesystem plugin.
+	 */
+	saveSqlFile: (path: string, contents: string) => typedError<null, AppError>(__TAURI_INVOKE("save_sql_file", { path, contents })),
 	/**
 	 *  Returns the SQL that *would* run, without touching the database. The UI shows
 	 *  this in a confirmation dialog; `execute_ddl` is a separate call so nothing
@@ -288,6 +304,13 @@ export type OpenedConnection = {
 	dialect: SqlDialect,
 	displayName: string,
 	color: string | null,
+};
+
+export type QueryExecutionId = string;
+
+export type QueryHandle = {
+	executionId: QueryExecutionId,
+	firstPage: RowPage,
 };
 
 export type RowPage = {

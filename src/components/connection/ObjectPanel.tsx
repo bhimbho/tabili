@@ -9,7 +9,8 @@ import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
 import { friendlyError } from "../../lib/errors";
-import { ChevronIcon, FunctionIcon, TableIcon, ViewIcon } from "../ui/icons";
+import * as Dialog from "@radix-ui/react-dialog";
+import { ChevronIcon, DatabaseIcon, FunctionIcon, TableIcon, ViewIcon } from "../ui/icons";
 import { HistoryPanel, QueriesPanel } from "./HistoryPanel";
 
 type PanelTab = "items" | "queries" | "history";
@@ -69,24 +70,76 @@ export function ObjectPanel() {
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
-  // Postgres can't change database in place, so the backend swaps the pool and
-  // everything scoped to this connection has to be refetched.
-  async function switchDatabase(name: string) {
-    if (!connectionId || name === info?.database) return;
+  // Database picker dialog state
+  const [dbPickerOpen, setDbPickerOpen] = useState(false);
+  const [dbSearch, setDbSearch] = useState("");
+  const [selectedDb, setSelectedDb] = useState<string | null>(null);
+  const [dbAction, setDbAction] = useState<"create" | "drop" | null>(null);
+  const [showNewDbForm, setShowNewDbForm] = useState(false);
+  const [newDbName, setNewDbName] = useState("");
+
+  async function switchDatabase(name: string): Promise<boolean> {
+    if (!connectionId || name === info?.database) return false;
     setSwitching(true);
     setSwitchError(null);
     const result = await commands.switchDatabase(connectionId, name);
     setSwitching(false);
     if (result.status === "error") {
       setSwitchError(friendlyError(result.error.message));
-      return;
+      return false;
     }
     closeTabsFor(connectionId);
     setActiveSchema(connectionId, "");
     for (const key of ["server-info", "schemas", "tables", "views", "rows", "columns"]) {
       queryClient.invalidateQueries({ queryKey: [key, connectionId] });
     }
+    return true;
   }
+
+  async function createDatabase() {
+    if (!connectionId) return;
+    const trimmed = newDbName.trim();
+    if (!trimmed) {
+      setSwitchError("Enter a database name first.");
+      return;
+    }
+    setDbAction("create");
+    setSwitchError(null);
+    const result = await commands.createDatabase(connectionId, trimmed);
+    setDbAction(null);
+    if (result.status === "error") {
+      setSwitchError(friendlyError(result.error.message));
+      return;
+    }
+    setNewDbName("");
+    setShowNewDbForm(false);
+    await queryClient.invalidateQueries({ queryKey: ["databases", connectionId] });
+  }
+
+  async function dropDatabase(name: string) {
+    if (!connectionId || !name) return;
+    if (databases && databases.length <= 1) {
+      setSwitchError("At least one database must remain in the connection.");
+      return;
+    }
+    setDbAction("drop");
+    setSwitchError(null);
+    const result = await commands.dropDatabase(connectionId, name);
+    setDbAction(null);
+    if (result.status === "error") {
+      setSwitchError(friendlyError(result.error.message));
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["databases", connectionId] });
+    await queryClient.invalidateQueries({ queryKey: ["server-info", connectionId] });
+    if (databases && databases.length > 1) {
+      const next = databases.find((db) => db.name !== name)?.name ?? "";
+      if (next) {
+        await switchDatabase(next);
+      }
+    }
+  }
+
   const { data: tables, isLoading, error } = useTables(connected ? connectionId : null, schema);
   const { data: views } = useViews(connected ? connectionId : null, schema);
   const { data: functions } = useFunctions(connected ? connectionId : null, schema);
@@ -124,6 +177,12 @@ export function ObjectPanel() {
     },
   ];
 
+  const dbNeedle = dbSearch.trim().toLowerCase();
+  const shownDatabases = useMemo(
+    () => (databases ?? []).filter((d) => !dbNeedle || d.name.toLowerCase().includes(dbNeedle)),
+    [databases, dbNeedle],
+  );
+
   if (!connection) {
     return (
       <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-neutral-600">
@@ -135,6 +194,37 @@ export function ObjectPanel() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div data-tauri-drag-region className="h-7 shrink-0" />
+
+      <div className="flex shrink-0 items-center gap-1 px-2 pb-1.5">
+        <button
+          title="Select database"
+          onClick={() => {
+            setDbPickerOpen(true);
+            setDbSearch("");
+            setSelectedDb(info?.database ?? null);
+            setSwitchError(null);
+            setShowNewDbForm(false);
+          }}
+          className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+        >
+          <DatabaseIcon className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => {
+            if (!connectionId) return;
+            openTab({
+              id: `${connectionId}:sql`,
+              connectionId,
+              title: "SQL",
+              kind: "query",
+              schema: null,
+            });
+          }}
+          className="rounded-md px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+        >
+          SQL
+        </button>
+      </div>
 
       <div className="flex shrink-0 items-center gap-0.5 px-2 pb-2">
         {TABS.map((t) => (
@@ -152,32 +242,32 @@ export function ObjectPanel() {
       </div>
 
       <div className="shrink-0 px-2 pb-2">
-        <div className="relative">
-          <svg
-            className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === "items" ? "Search for item…" : `Search ${tab}…`}
-            className="w-full rounded-md border border-black/30 bg-black/20 py-1 pl-7 pr-6 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-500 focus:border-neutral-500"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-neutral-500 hover:text-neutral-200"
+          <div className="relative">
+            <svg
+              className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              ×
-            </button>
-          )}
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={tab === "items" ? "Search for item…" : `Search ${tab}…`}
+              className="w-full rounded-md border border-black/30 bg-black/20 py-1 pl-7 pr-6 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-500 focus:border-neutral-500"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-neutral-500 hover:text-neutral-200"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1">
         {tab === "history" && <HistoryPanel search={search} />}
@@ -257,22 +347,6 @@ export function ObjectPanel() {
 
       {tab === "items" && connected && (
         <div className="shrink-0 space-y-1.5 border-t border-black/30 p-2">
-          {databases && databases.length > 1 && (
-            <label className="block">
-              <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-neutral-600">
-                {switching ? "Switching…" : "Database"}
-              </span>
-              <Select
-                size="sm"
-                value={info?.database ?? databases[0]?.name ?? ""}
-                onChange={switchDatabase}
-                options={databases.map((d) => ({ value: d.name, label: d.name }))}
-              />
-            </label>
-          )}
-          {switchError && (
-            <p className="px-0.5 text-[11px] text-red-400">{switchError}</p>
-          )}
           {schemas && schemas.length > 0 && (
             <label className="block">
               <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-neutral-600">
@@ -288,6 +362,153 @@ export function ObjectPanel() {
           )}
         </div>
       )}
+
+      <Dialog.Root open={dbPickerOpen} onOpenChange={setDbPickerOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-800 bg-neutral-900 p-4 shadow-xl shadow-black/40 focus:outline-none">
+            <Dialog.Title className="text-sm font-semibold text-neutral-100">Select Database</Dialog.Title>
+
+            <div className="mt-3">
+              <div className="relative">
+                <svg
+                  className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  autoFocus
+                  value={dbSearch}
+                  onChange={(e) => setDbSearch(e.target.value)}
+                  placeholder="Search for database…"
+                  className="w-full rounded-md border border-neutral-800 bg-neutral-950 py-1.5 pl-7 pr-6 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-600 focus:border-neutral-500"
+                />
+                {dbSearch && (
+                  <button
+                    onClick={() => setDbSearch("")}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-neutral-500 hover:text-neutral-200"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showNewDbForm && (
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={newDbName}
+                  onChange={(e) => setNewDbName(e.target.value)}
+                  placeholder="Database name"
+                  className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1.5 text-xs text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-indigo-500"
+                />
+                <button
+                  onClick={createDatabase}
+                  disabled={dbAction === "create" || !newDbName.trim()}
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {dbAction === "create" ? "Creating…" : "Create"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewDbForm(false);
+                    setNewDbName("");
+                  }}
+                  className="rounded-md px-2 py-1.5 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            <div className="mt-3 max-h-[240px] overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950">
+              {shownDatabases.length === 0 && (
+                <p className="px-3 py-2 text-xs text-neutral-600">No databases found.</p>
+              )}
+              {shownDatabases.map((db) => {
+                const active = db.name === info?.database;
+                return (
+                  <button
+                    key={db.name}
+                    onClick={() => setSelectedDb(db.name)}
+                    className={clsx(
+                      "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
+                      selectedDb === db.name
+                        ? "bg-indigo-600/20 text-indigo-300"
+                        : "text-neutral-300 hover:bg-white/5",
+                    )}
+                  >
+                    <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                    <span className="truncate">{db.name}</span>
+                    {active && (
+                      <span className="ml-auto shrink-0 rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400">
+                        active
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {switchError && (
+              <p className="mt-2 rounded-md border border-red-900/50 bg-red-950/30 px-2 py-1.5 text-[11px] text-red-400">
+                {switchError}
+              </p>
+            )}
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (!selectedDb || selectedDb === info?.database) return;
+                    dropDatabase(selectedDb);
+                  }}
+                  disabled={dbAction === "drop" || !selectedDb || selectedDb === info?.database || (databases?.length ?? 0) <= 1}
+                  className="rounded-md bg-red-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {dbAction === "drop" ? "Dropping…" : "Drop"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDbPickerOpen(false)}
+                  className="rounded-md px-3 py-1.5 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+                >
+                  Cancel
+                </button>
+                {!showNewDbForm && (
+                  <button
+                    onClick={() => {
+                      setShowNewDbForm(true);
+                      setNewDbName("");
+                    }}
+                    className="rounded-md bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700"
+                  >
+                    New…
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    if (selectedDb) {
+                      const ok = await switchDatabase(selectedDb);
+                      if (ok) setDbPickerOpen(false);
+                    }
+                  }}
+                  disabled={!selectedDb || selectedDb === info?.database || switching}
+                  className="rounded-md bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {switching ? "Switching…" : "Open"}
+                </button>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <ContextMenu position={menu.position} items={menuItems} onClose={menu.close} />
     </div>

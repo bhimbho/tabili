@@ -1,6 +1,7 @@
 pub mod connections;
 pub mod console;
 pub mod ddl;
+pub mod query;
 pub mod rows;
 pub mod schema;
 pub mod transfer;

@@ -60,6 +60,16 @@ impl DatabaseDriver for SqliteDriver {
         // A SQLite connection is always scoped to a single file/database.
         Ok(vec![DatabaseInfo { name: "main".to_string() }])
     }
+    async fn create_database(&self, _name: &str) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite connections only manage a single file-backed database".into(),
+        ))
+    }
+    async fn drop_database(&self, _name: &str) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite connections only manage a single file-backed database".into(),
+        ))
+    }
     async fn list_schemas(&self, _database: Option<&str>) -> Result<Vec<SchemaInfo>, DbError> {
         // SQLite has no schema concept beyond the single implicit "main".
         Ok(vec![])
@@ -147,14 +157,47 @@ impl DatabaseDriver for SqliteDriver {
         Ok(RowPage { columns, rows: out_rows, has_more, sql: query })
     }
 
-    async fn run_query(&self, _sql: &str) -> Result<QueryHandle, DbError> {
-        Err(DbError::Unsupported("M3: sql editor not yet implemented".into()))
+    async fn run_query(&self, sql: &str) -> Result<QueryHandle, DbError> {
+        let rows = sqlx::query(sqlx::AssertSqlSafe(sql.to_string()))
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Query(e.to_string()))?;
+
+        let mut columns: Vec<String> = Vec::new();
+        let mut out_rows = Vec::new();
+        for row in &rows {
+            if columns.is_empty() {
+                columns = decode::column_names(row);
+            }
+            let mut map = HashMap::new();
+            for (i, name) in columns.iter().enumerate() {
+                map.insert(name.clone(), decode::decode_value(row, i));
+            }
+            out_rows.push(map);
+        }
+
+        Ok(QueryHandle {
+            execution_id: QueryExecutionId("".to_string()),
+            first_page: RowPage {
+                columns,
+                rows: out_rows,
+                has_more: false,
+                sql: sql.to_string(),
+            },
+        })
     }
+
     async fn fetch_more(&self, _handle: &QueryExecutionId, _n: u32) -> Result<RowPage, DbError> {
-        Err(DbError::Unsupported("M3: sql editor not yet implemented".into()))
+        Ok(RowPage {
+            columns: Vec::new(),
+            rows: Vec::new(),
+            has_more: false,
+            sql: String::new(),
+        })
     }
+
     async fn cancel(&self, _handle: &QueryExecutionId) -> Result<(), DbError> {
-        Err(DbError::Unsupported("M3: sql editor not yet implemented".into()))
+        Ok(())
     }
 
     async fn insert_row(
