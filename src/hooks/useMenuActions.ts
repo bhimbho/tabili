@@ -248,6 +248,20 @@ async function dispatch(action: string, queryClient: QueryClient) {
       }
       return;
     }
+
+    // --- Tools ---
+    case "tools.erd": {
+      if (!activeId) return;
+      const schema = connections.activeSchema[activeId] ?? null;
+      tabs.openTab({
+        id: `${activeId}:erd`,
+        connectionId: activeId,
+        title: "ERD",
+        kind: "erd",
+        schema,
+      });
+      return;
+    }
   }
 }
 
