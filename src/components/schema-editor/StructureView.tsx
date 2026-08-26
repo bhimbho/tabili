@@ -4,6 +4,8 @@ import { KeyIcon, PlusIcon } from "../ui/icons";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { AddColumnDialog } from "./AddColumnDialog";
 import { DropColumnDialog } from "./DropColumnDialog";
+import { EditColumnDialog } from "./EditColumnDialog";
+import type { ColumnInfo } from "../../bindings";
 import { DataTable, Empty, Panel, PanelState } from "./panels";
 
 interface StructureViewProps {
@@ -19,20 +21,22 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
   const { data: columns, isLoading, error } = useColumns(connectionId, table, schema ?? undefined);
   const { data: foreignKeys } = useForeignKeys(connectionId, table, schema ?? undefined);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [menuColumn, setMenuColumn] = useState<string | null>(null);
+  const [menuColumn, setMenuColumn] = useState<ColumnInfo | null>(null);
+  const [editTarget, setEditTarget] = useState<ColumnInfo | null>(null);
   const menu = useContextMenu();
 
   const menuItems: MenuEntry[] = [
     {
       label: "Copy column name",
-      onSelect: () => menuColumn && navigator.clipboard.writeText(menuColumn),
+      onSelect: () => menuColumn && navigator.clipboard.writeText(menuColumn.name),
     },
     null,
+    { label: "Edit column…", onSelect: () => menuColumn && setEditTarget(menuColumn) },
     { label: "Add column…", onSelect: () => onAddOpenChange(true) },
     {
       label: "Drop column…",
       danger: true,
-      onSelect: () => menuColumn && setDropTarget(menuColumn),
+      onSelect: () => menuColumn && setDropTarget(menuColumn.name),
     },
   ];
 
@@ -63,7 +67,7 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
             key={col.name}
             className="group text-neutral-300"
             onContextMenu={(e) => {
-              setMenuColumn(col.name);
+              setMenuColumn(col);
               menu.open(e);
             }}
           >
@@ -128,6 +132,13 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
         schema={schema}
         column={dropTarget}
         onClose={() => setDropTarget(null)}
+      />
+      <EditColumnDialog
+        connectionId={connectionId}
+        table={table}
+        schema={schema}
+        column={editTarget}
+        onClose={() => setEditTarget(null)}
       />
     </Panel>
   );

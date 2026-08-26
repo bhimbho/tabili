@@ -6,16 +6,29 @@ mod mutate;
 use async_trait::async_trait;
 use sqlx::Row;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use crate::db::{
-    filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
-    DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
-    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo, FunctionInfo,
+    filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
+    DbError, DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle,
+    RowPage, SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
+    TriggerInfo, ServerInfo, FunctionInfo,
 };
 use introspect::quote_ident;
 
+/// How many rows `run_query` returns on the first call; further rows are paged
+/// via `fetch_more` against an in-memory buffer.
+const QUERY_PAGE_SIZE: usize = 500;
+
+struct CachedResult {
+    columns: Vec<String>,
+    rows: Vec<HashMap<String, DbValue>>,
+    sql: String,
+}
+
 pub struct SqliteDriver {
     pool: sqlx::SqlitePool,
+    query_cache: Mutex<HashMap<String, CachedResult>>,
 }
 
 impl SqliteDriver {
@@ -30,7 +43,7 @@ impl SqliteDriver {
             .connect(&format!("sqlite://{path}"))
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;
-        Ok(Self { pool })
+        Ok(Self { pool, query_cache: Mutex::new(HashMap::new()) })
     }
 }
 
@@ -164,7 +177,7 @@ impl DatabaseDriver for SqliteDriver {
             .map_err(|e| DbError::Query(e.to_string()))?;
 
         let mut columns: Vec<String> = Vec::new();
-        let mut out_rows = Vec::new();
+        let mut all_rows = Vec::new();
         for row in &rows {
             if columns.is_empty() {
                 columns = decode::column_names(row);
@@ -173,26 +186,52 @@ impl DatabaseDriver for SqliteDriver {
             for (i, name) in columns.iter().enumerate() {
                 map.insert(name.clone(), decode::decode_value(row, i));
             }
-            out_rows.push(map);
+            all_rows.push(map);
         }
 
+        let execution_id = uuid::Uuid::new_v4().to_string();
+        let cached = CachedResult { columns, rows: all_rows, sql: sql.to_string() };
+
+        let (first_page_rows, has_more) = split_page(&cached.rows, QUERY_PAGE_SIZE);
+        let first_page = RowPage {
+            columns: cached.columns.clone(),
+            rows: first_page_rows,
+            has_more,
+            sql: sql.to_string(),
+        };
+
+        self.query_cache
+            .lock()
+            .unwrap()
+            .insert(execution_id.clone(), cached);
+
         Ok(QueryHandle {
-            execution_id: QueryExecutionId("".to_string()),
-            first_page: RowPage {
-                columns,
-                rows: out_rows,
-                has_more: false,
-                sql: sql.to_string(),
-            },
+            execution_id: QueryExecutionId(execution_id),
+            first_page,
         })
     }
 
-    async fn fetch_more(&self, _handle: &QueryExecutionId, _n: u32) -> Result<RowPage, DbError> {
+    async fn fetch_more(&self, handle: &QueryExecutionId, n: u32) -> Result<RowPage, DbError> {
+        let mut cache = self.query_cache.lock().unwrap();
+        let cached = cache
+            .get_mut(&handle.0)
+            .ok_or_else(|| DbError::Query("unknown or expired query execution".into()))?;
+
+        let offset = n as usize;
+        let next = cached
+            .rows
+            .iter()
+            .skip(offset)
+            .take(QUERY_PAGE_SIZE)
+            .cloned()
+            .collect::<Vec<_>>();
+        let has_more = offset + next.len() < cached.rows.len();
+
         Ok(RowPage {
-            columns: Vec::new(),
-            rows: Vec::new(),
-            has_more: false,
-            sql: String::new(),
+            columns: cached.columns.clone(),
+            rows: next,
+            has_more,
+            sql: cached.sql.clone(),
         })
     }
 
@@ -235,6 +274,24 @@ impl DatabaseDriver for SqliteDriver {
     }
     async fn build_drop_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError> {
         Ok(ddl::build_drop_table_ddl(&table.table))
+    }
+    async fn build_truncate_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError> {
+        Ok(ddl::build_truncate_table_ddl(&table.table))
+    }
+    async fn build_edit_column_ddl(
+        &self,
+        _table: &TableRef,
+        _column: &str,
+        _new_type: Option<&str>,
+        _nullable: Option<bool>,
+        _default: Option<Option<String>>,
+    ) -> Result<Vec<String>, DbError> {
+        // SQLite's ALTER TABLE can't change a column's type or nullability, and
+        // changing DEFAULT requires a full table recreate. Keep this explicit
+        // rather than silently doing nothing.
+        Err(DbError::Unsupported(
+            "SQLite cannot alter a column's type or nullability; drop and re-add it instead".into(),
+        ))
     }
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError> {
         ddl::execute_ddl(&self.pool, statements).await

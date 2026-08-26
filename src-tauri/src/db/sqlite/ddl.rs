@@ -78,6 +78,11 @@ pub fn build_drop_table_ddl(table: &str) -> Vec<String> {
     vec![format!("DROP TABLE {}", quote_ident(table))]
 }
 
+pub fn build_truncate_table_ddl(table: &str) -> Vec<String> {
+    // SQLite has no TRUNCATE; DELETE FROM (without WHERE) is equivalent.
+    vec![format!("DELETE FROM {}", quote_ident(table))]
+}
+
 pub async fn execute_ddl(pool: &SqlitePool, statements: &[String]) -> Result<(), DbError> {
     let mut tx = pool.begin().await.map_err(|e| DbError::Query(e.to_string()))?;
     for statement in statements {

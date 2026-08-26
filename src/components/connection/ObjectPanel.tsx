@@ -12,6 +12,8 @@ import { friendlyError } from "../../lib/errors";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronIcon, DatabaseIcon, FunctionIcon, TableIcon, ViewIcon } from "../ui/icons";
 import { HistoryPanel, QueriesPanel } from "./HistoryPanel";
+import { TableActionsDialog } from "./TableActionsDialog";
+import { CreateTableDialog } from "../schema-editor/CreateTableDialog";
 
 type PanelTab = "items" | "queries" | "history";
 
@@ -58,6 +60,9 @@ export function ObjectPanel() {
   const [tab, setTab] = useState<PanelTab>("items");
   const [search, setSearch] = useState("");
   const [menuTable, setMenuTable] = useState<string | null>(null);
+  const [tableAction, setTableAction] = useState<"truncate" | "drop" | null>(null);
+  const [tableActionTarget, setTableActionTarget] = useState<string | null>(null);
+  const [showNewTable, setShowNewTable] = useState(false);
   const menu = useContextMenu();
 
   const connection = connections.find((c) => c.id === connectionId);
@@ -169,6 +174,21 @@ export function ObjectPanel() {
     { label: "Copy name", onSelect: () => menuTable && navigator.clipboard.writeText(menuTable) },
     null,
     {
+      label: "Truncate…",
+      onSelect: () => {
+        setTableActionTarget(menuTable);
+        setTableAction("truncate");
+      },
+    },
+    {
+      label: "Drop…",
+      onSelect: () => {
+        setTableActionTarget(menuTable);
+        setTableAction("drop");
+      },
+    },
+    null,
+    {
       label: "Refresh",
       onSelect: () => {
         queryClient.invalidateQueries({ queryKey: ["tables", connectionId] });
@@ -223,6 +243,13 @@ export function ObjectPanel() {
           className="rounded-md px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
         >
           SQL
+        </button>
+        <button
+          title="New table"
+          onClick={() => setShowNewTable(true)}
+          className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+        >
+          + Table
         </button>
       </div>
 
@@ -511,6 +538,25 @@ export function ObjectPanel() {
       </Dialog.Root>
 
       <ContextMenu position={menu.position} items={menuItems} onClose={menu.close} />
+
+      {connectionId && (
+        <TableActionsDialog
+          connectionId={connectionId}
+          schema={schema ?? null}
+          table={tableAction ? tableActionTarget : null}
+          action={tableAction}
+          onClose={() => setTableAction(null)}
+        />
+      )}
+
+      {connectionId && (
+        <CreateTableDialog
+          connectionId={connectionId}
+          schema={schema ?? null}
+          open={showNewTable}
+          onOpenChange={setShowNewTable}
+        />
+      )}
     </div>
   );
 }

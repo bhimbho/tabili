@@ -7,20 +7,35 @@ use async_trait::async_trait;
 use sqlx::postgres::PgSslMode;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Mutex;
 
 use sqlx::Row;
 
 use crate::db::{
-    filter, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo, DbError,
-    DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle, RowPage,
-    SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec, TriggerInfo, ServerInfo, FunctionInfo,
+    filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
+    DbError, DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle,
+    RowPage, SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
+    TriggerInfo, ServerInfo, FunctionInfo,
 };
 use introspect::{quote_ident, quote_qualified};
 
 const DEFAULT_SCHEMA: &str = "public";
 
+/// How many rows `run_query` returns on the first call. Further rows are fetched
+/// via `fetch_more` against an in-memory buffer keyed by execution id.
+const QUERY_PAGE_SIZE: usize = 500;
+
+/// A fully-materialized result set held for a single query execution, so the
+/// frontend can page through it with `fetch_more` without re-running the SQL.
+struct CachedResult {
+    columns: Vec<String>,
+    rows: Vec<HashMap<String, DbValue>>,
+    sql: String,
+}
+
 pub struct PostgresDriver {
     pool: sqlx::PgPool,
+    query_cache: Mutex<HashMap<String, CachedResult>>,
 }
 
 impl PostgresDriver {
@@ -55,7 +70,7 @@ impl PostgresDriver {
             .connect_with(opts)
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;
-        Ok(Self { pool })
+        Ok(Self { pool, query_cache: Mutex::new(HashMap::new()) })
     }
 
     fn schema_of<'a>(schema: &'a SchemaRef) -> &'a str {
@@ -219,7 +234,7 @@ impl DatabaseDriver for PostgresDriver {
             .map_err(|e| DbError::Query(e.to_string()))?;
 
         let mut columns: Vec<String> = Vec::new();
-        let mut out_rows = Vec::new();
+        let mut all_rows = Vec::new();
         for row in &rows {
             if columns.is_empty() {
                 columns = decode::column_names(row);
@@ -228,26 +243,53 @@ impl DatabaseDriver for PostgresDriver {
             for (i, name) in columns.iter().enumerate() {
                 map.insert(name.clone(), decode::decode_value(row, i));
             }
-            out_rows.push(map);
+            all_rows.push(map);
         }
 
+        let execution_id = uuid::Uuid::new_v4().to_string();
+        let cached = CachedResult { columns, rows: all_rows, sql: sql.to_string() };
+
+        let (first_page_rows, has_more) =
+            split_page(&cached.rows, QUERY_PAGE_SIZE);
+        let first_page = RowPage {
+            columns: cached.columns.clone(),
+            rows: first_page_rows,
+            has_more,
+            sql: sql.to_string(),
+        };
+
+        self.query_cache
+            .lock()
+            .unwrap()
+            .insert(execution_id.clone(), cached);
+
         Ok(QueryHandle {
-            execution_id: QueryExecutionId("".to_string()),
-            first_page: RowPage {
-                columns,
-                rows: out_rows,
-                has_more: false,
-                sql: sql.to_string(),
-            },
+            execution_id: QueryExecutionId(execution_id),
+            first_page,
         })
     }
 
-    async fn fetch_more(&self, _handle: &QueryExecutionId, _n: u32) -> Result<RowPage, DbError> {
+    async fn fetch_more(&self, handle: &QueryExecutionId, n: u32) -> Result<RowPage, DbError> {
+        let mut cache = self.query_cache.lock().unwrap();
+        let cached = cache
+            .get_mut(&handle.0)
+            .ok_or_else(|| DbError::Query("unknown or expired query execution".into()))?;
+
+        let offset = n as usize;
+        let next = cached
+            .rows
+            .iter()
+            .skip(offset)
+            .take(QUERY_PAGE_SIZE)
+            .cloned()
+            .collect::<Vec<_>>();
+        let has_more = offset + next.len() < cached.rows.len();
+
         Ok(RowPage {
-            columns: Vec::new(),
-            rows: Vec::new(),
-            has_more: false,
-            sql: String::new(),
+            columns: cached.columns.clone(),
+            rows: next,
+            has_more,
+            sql: cached.sql.clone(),
         })
     }
 
@@ -295,6 +337,28 @@ impl DatabaseDriver for PostgresDriver {
     async fn build_drop_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
         Ok(ddl::build_drop_table_ddl(schema, &table.table))
+    }
+    async fn build_truncate_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError> {
+        let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
+        Ok(ddl::build_truncate_table_ddl(schema, &table.table))
+    }
+    async fn build_edit_column_ddl(
+        &self,
+        table: &TableRef,
+        column: &str,
+        new_type: Option<&str>,
+        nullable: Option<bool>,
+        default: Option<Option<String>>,
+    ) -> Result<Vec<String>, DbError> {
+        let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);
+        ddl::build_edit_column_ddl(
+            schema,
+            &table.table,
+            column,
+            new_type,
+            nullable,
+            default.as_ref().map(|d| d.as_deref()),
+        )
     }
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError> {
         ddl::execute_ddl(&self.pool, statements).await

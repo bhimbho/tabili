@@ -6,7 +6,7 @@ use std::time::Instant;
 use crate::app_store::{AppStore, StatementLogEntry};
 use crate::connection_registry::ConnectionRegistry;
 use crate::db::error::AppError;
-use crate::db::{ColumnSpec, DatabaseDriver, DbError, TableDiff, TableRef};
+use crate::db::{ColumnSpec, DatabaseDriver, DbError, TableDiff, TableRef, TableSpec};
 
 async fn resolve(
     registry: &State<'_, ConnectionRegistry>,
@@ -69,6 +69,74 @@ pub async fn preview_drop_column(
         renamed_columns: vec![],
     };
     preview_alter_table(registry, connection_id, schema, table, diff).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn preview_create_table(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    spec: TableSpec,
+) -> Result<Vec<String>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver.build_create_table_ddl(&spec).await.map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn preview_drop_table(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+) -> Result<Vec<String>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .build_drop_table_ddl(&TableRef { database: None, schema, table })
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn preview_truncate_table(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+) -> Result<Vec<String>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .build_truncate_table_ddl(&TableRef { database: None, schema, table })
+        .await
+        .map_err(AppError::from)
+}
+
+/// `new_type` required for MySQL; `default` is `Some(Some("..."))` to set a
+/// default, `Some(None)` to drop it, and `None` to leave it untouched.
+#[tauri::command]
+#[specta::specta]
+pub async fn preview_edit_column(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+    column: String,
+    new_type: Option<String>,
+    nullable: Option<bool>,
+    new_default: Option<Option<String>>,
+) -> Result<Vec<String>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .build_edit_column_ddl(
+            &TableRef { database: None, schema, table },
+            &column,
+            new_type.as_deref(),
+            nullable,
+            new_default,
+        )
+        .await
+        .map_err(AppError::from)
 }
 
 #[tauri::command]

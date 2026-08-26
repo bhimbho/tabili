@@ -93,6 +93,14 @@ export const commands = {
 	previewAlterTable: (connectionId: string, schema: string | null, table: string, diff: TableDiff) => typedError<string[], AppError>(__TAURI_INVOKE("preview_alter_table", { connectionId, schema, table, diff })),
 	previewAddColumn: (connectionId: string, schema: string | null, table: string, column: ColumnSpec) => typedError<string[], AppError>(__TAURI_INVOKE("preview_add_column", { connectionId, schema, table, column })),
 	previewDropColumn: (connectionId: string, schema: string | null, table: string, column: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_drop_column", { connectionId, schema, table, column })),
+	previewCreateTable: (connectionId: string, spec: TableSpec) => typedError<string[], AppError>(__TAURI_INVOKE("preview_create_table", { connectionId, spec })),
+	previewDropTable: (connectionId: string, schema: string | null, table: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_drop_table", { connectionId, schema, table })),
+	previewTruncateTable: (connectionId: string, schema: string | null, table: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_truncate_table", { connectionId, schema, table })),
+	/**
+	 *  `new_type` required for MySQL; `default` is `Some(Some("..."))` to set a
+	 *  default, `Some(None)` to drop it, and `None` to leave it untouched.
+	 */
+	previewEditColumn: (connectionId: string, schema: string | null, table: string, column: string, newType: string | null, nullable: boolean | null, newDefault: string | null) => typedError<string[], AppError>(__TAURI_INVOKE("preview_edit_column", { connectionId, schema, table, column, newType, nullable, newDefault })),
 	executeDdl: (connectionId: string, statements: string[]) => typedError<null, AppError>(__TAURI_INVOKE("execute_ddl", { connectionId, statements })),
 	serverInfo: (connectionId: string) => typedError<ServerInfo, AppError>(__TAURI_INVOKE("server_info", { connectionId })),
 	listStatementLog: (limit: number) => typedError<StatementLogEntry[], AppError>(__TAURI_INVOKE("list_statement_log", { limit })),
@@ -392,6 +400,12 @@ export type TableInfo = {
 	name: string,
 	isView: boolean,
 	estimatedRowCount: number,
+};
+
+export type TableSpec = {
+	name: string,
+	columns: ColumnSpec[],
+	primaryKey: string[],
 };
 
 export type TriggerInfo = {

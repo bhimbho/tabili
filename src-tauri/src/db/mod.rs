@@ -100,7 +100,19 @@ pub trait DatabaseDriver: Send + Sync {
         table: &TableRef,
         diff: &TableDiff,
     ) -> Result<Vec<String>, DbError>;
+    /// Changes a single column's type/nullability/default. `new_type` is required
+    /// on MySQL (which rewrites the full definition); `default` is `None` to
+    /// leave it alone, `Some(None)` to drop it.
+    async fn build_edit_column_ddl(
+        &self,
+        table: &TableRef,
+        column: &str,
+        new_type: Option<&str>,
+        nullable: Option<bool>,
+        default: Option<Option<String>>,
+    ) -> Result<Vec<String>, DbError>;
     async fn build_drop_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError>;
+    async fn build_truncate_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError>;
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError>;
 }
 
@@ -113,4 +125,11 @@ pub async fn connect_driver(
         DbKind::MySql => Ok(Arc::new(mysql::MySqlDriver::connect(config).await?)),
         DbKind::Sqlite => Ok(Arc::new(sqlite::SqliteDriver::connect(config).await?)),
     }
+}
+
+/// Splits a full result set into the first page and whether more rows remain,
+/// used by every driver's `run_query` to back pagination.
+pub fn split_page<T: Clone>(rows: &[T], page_size: usize) -> (Vec<T>, bool) {
+    let has_more = rows.len() > page_size;
+    (rows.iter().take(page_size).cloned().collect(), has_more)
 }

@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import { format as formatSql } from "sql-formatter";
 import { save as saveFileDialog } from "@tauri-apps/plugin-dialog";
-import { commands, type DbValue, type RowPage } from "../../bindings";
+import { commands, type DbValue, type QueryHandle } from "../../bindings";
 import { friendlyError } from "../../lib/errors";
 import { useConsoleStore } from "../../stores/consoleStore";
 import { useConnectionsStore } from "../../stores/connectionsStore";
@@ -46,11 +47,16 @@ interface SqlEditorProps {
 export function SqlEditor({ connectionId }: SqlEditorProps) {
   const [sql, setSql] = useState("");
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<RowPage | null>(null);
+  const [handle, setHandle] = useState<QueryHandle | null>(null);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [rows, setRows] = useState<Record<string, DbValue>[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
-  const [editorHeight, setEditorHeight] = useState(180);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [editorHeight, setEditorHeight] = useState(220);
+  const [find, setFind] = useState("");
+  const [findOpen, setFindOpen] = useState(false);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const log = useConsoleStore((s) => s.log);
 
@@ -62,14 +68,6 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
 
   const lineCount = useMemo(() => (sql ? sql.split("\n").length : 1), [sql]);
   const charCount = sql.length;
-
-  function updateCursor() {
-    const el = textareaRef.current;
-    if (!el) return;
-    const upToCursor = el.value.slice(0, el.selectionStart);
-    const lines = upToCursor.split("\n");
-    setCursor({ line: lines.length, col: lines[lines.length - 1].length + 1 });
-  }
 
   function onDragStart(e: React.PointerEvent) {
     dragRef.current = { startY: e.clientY, startHeight: editorHeight };
@@ -91,6 +89,14 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
     window.addEventListener("pointerup", onUp);
   }
 
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor;
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => void runCurrent());
+    editor.onDidChangeCursorPosition((e) => {
+      setCursor({ line: e.position.lineNumber, col: e.position.column });
+    });
+  };
+
   async function runStatement(statement: string) {
     const trimmed = statement.trim();
     if (!trimmed || !connectionId) return;
@@ -103,9 +109,16 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
       const msg = friendlyError(res.error.message);
       setError(msg);
       log({ sql: trimmed, success: false, error: msg, durationMs });
-      setResult(null);
+      setHandle(null);
+      setColumns([]);
+      setRows([]);
+      setHasMore(false);
     } else {
-      setResult(res.data.firstPage);
+      const h = res.data;
+      setHandle(h);
+      setColumns(h.firstPage.columns);
+      setRows(h.firstPage.rows);
+      setHasMore(h.firstPage.hasMore);
       log({ sql: trimmed, success: true, durationMs });
     }
     setRunning(false);
@@ -115,7 +128,6 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
     if (!sql.trim()) return;
     const statements = await commands.splitSql(sql);
     if (statements.length === 0) return;
-    // Run them sequentially, keeping the last result visible.
     for (const stmt of statements) {
       await runStatement(stmt);
     }
@@ -125,17 +137,18 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
     if (!sql.trim()) return;
     const statements = await commands.splitSql(sql);
     if (statements.length === 0) return;
-
-    // Find the statement whose range contains the cursor.
-    const el = textareaRef.current;
-    const caret = el ? el.selectionStart : 0;
+    const caret = editorRef.current?.getPosition();
+    const text = editorRef.current?.getValue() ?? sql;
+    const caretOffset = caret
+      ? text.split("\n").slice(0, caret.lineNumber - 1).join("\n").length + (caret.column - 1)
+      : 0;
     let offset = 0;
     let current: string | null = null;
     for (const stmt of statements) {
       const start = sql.indexOf(stmt, offset);
       if (start === -1) continue;
       const end = start + stmt.length;
-      if (caret >= start && caret <= end) {
+      if (caretOffset >= start && caretOffset <= end) {
         current = stmt;
         break;
       }
@@ -151,6 +164,17 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
     } catch (e) {
       setError(`Could not format SQL: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  async function loadMore() {
+    if (!handle || !hasMore) return;
+    const next = await commands.fetchMore(connectionId, handle.executionId, rows.length);
+    if (next.status === "error") {
+      setError(friendlyError(next.error.message));
+      return;
+    }
+    setRows((prev) => [...prev, ...next.data.rows]);
+    setHasMore(next.data.hasMore);
   }
 
   async function saveAsJson() {
@@ -198,43 +222,41 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
         >
           Save as JSON
         </button>
-        {result && (
+        <button
+          onClick={() => setFindOpen((o) => !o)}
+          disabled={rows.length === 0}
+          className="rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Find
+        </button>
+        {rows.length > 0 && (
           <span className="ml-auto text-[11px] text-neutral-500">
-            {result.rows.length} row{result.rows.length === 1 ? "" : "s"}
+            {rows.length} row{rows.length === 1 ? "" : "s"}
           </span>
         )}
       </div>
 
-      {/* Editor with line gutter */}
-      <div className="flex shrink-0 flex-col" style={{ height: editorHeight }}>
-        <div className="flex min-h-0 flex-1">
-          <div
-            aria-hidden
-            className="select-none overflow-hidden border-r border-black/30 bg-black/10 px-2 py-2 text-right font-mono text-xs leading-[1.5] text-neutral-600"
-            style={{ width: `${Math.max(3, String(lineCount).length + 1)}ch` }}
-          >
-            {Array.from({ length: lineCount }, (_, i) => (
-              <div key={i}>{i + 1}</div>
-            ))}
-          </div>
-          <textarea
-            ref={textareaRef}
+      {/* Monaco editor */}
+      <div className="flex shrink-0 flex-col overflow-hidden border-b border-black/30" style={{ height: editorHeight }}>
+        <div className="min-h-0 flex-1">
+          <Editor
+            height="100%"
+            language="sql"
             value={sql}
-            onChange={(e) => {
-              setSql(e.target.value);
-              updateCursor();
+            onChange={(v) => setSql(v ?? "")}
+            onMount={handleEditorMount}
+            theme="vs-dark"
+            options={{
+              minimap: { enabled: false },
+              fontSize: 12,
+              fontFamily: "'SF Mono', 'Menlo', monospace",
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              lineNumbers: "on",
+              wordWrap: "on",
+              padding: { top: 8, bottom: 8 },
+              renderLineHighlight: "line",
             }}
-            onKeyUp={updateCursor}
-            onClick={updateCursor}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                e.preventDefault();
-                void runCurrent();
-              }
-            }}
-            placeholder="Write SQL here…  (⌘/Ctrl + Enter to run current)"
-            spellCheck={false}
-            className="min-w-0 flex-1 resize-none bg-transparent p-2 font-mono text-xs leading-[1.5] text-neutral-200 outline-none placeholder:text-neutral-600"
           />
         </div>
 
@@ -251,27 +273,47 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
       {/* Drag handle to expand/collapse the editor */}
       <div
         onPointerDown={onDragStart}
-        onDoubleClick={() => setEditorHeight(180)}
+        onDoubleClick={() => setEditorHeight(220)}
         className="group relative h-1.5 shrink-0 cursor-row-resize bg-transparent"
         title="Drag to resize editor · double-click to reset"
       >
         <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-black/40 transition-colors group-hover:bg-indigo-500" />
       </div>
 
+      {/* Find bar */}
+      {findOpen && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-black/30 bg-black/20 px-2 py-1">
+          <input
+            autoFocus
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            placeholder="Find in results…"
+            className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-indigo-500"
+          />
+          <button
+            onClick={() => setFind("")}
+            className="rounded px-1 text-neutral-500 hover:text-neutral-200"
+            title="Clear"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Results */}
       <div className="min-h-0 flex-1 overflow-auto">
         {error && <p className="px-3 py-2 text-xs text-red-400">{error}</p>}
-        {!error && !result && (
+        {!error && rows.length === 0 && (
           <p className="px-3 py-2 text-xs text-neutral-600">Run a query to see results.</p>
         )}
-        {!error && result && result.columns.length === 0 && (
+        {!error && columns.length === 0 && handle && (
           <p className="px-3 py-2 text-xs text-neutral-500">Statement executed successfully.</p>
         )}
-        {!error && result && result.columns.length > 0 && (
+        {!error && columns.length > 0 && (
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="sticky top-0 bg-neutral-900">
-                {result.columns.map((c) => (
+                {columns.map((c) => (
                   <th
                     key={c}
                     className="whitespace-nowrap border-b border-black/40 px-2 py-1 text-left font-medium text-neutral-400"
@@ -282,20 +324,37 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
               </tr>
             </thead>
             <tbody>
-              {result.rows.map((row, i) => (
+              {rows.map((row, i) => (
                 <tr key={i} className={clsx(i % 2 === 1 && "bg-white/[0.02]")}>
-                  {result.columns.map((c) => (
-                    <td
-                      key={c}
-                      className="whitespace-nowrap border-b border-black/20 px-2 py-1 text-neutral-300"
-                    >
-                      {displayValue(row[c])}
-                    </td>
-                  ))}
+                  {columns.map((c) => {
+                    const text = displayValue(row[c]);
+                    const matches = find.trim() && text.toLowerCase().includes(find.trim().toLowerCase());
+                    return (
+                      <td
+                        key={c}
+                        className={clsx(
+                          "whitespace-nowrap border-b border-black/20 px-2 py-1",
+                          matches ? "bg-amber-500/20 text-amber-200" : "text-neutral-300",
+                        )}
+                      >
+                        {text}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
           </table>
+        )}
+        {hasMore && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={loadMore}
+              className="rounded-md bg-neutral-800 px-3 py-1 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700"
+            >
+              Load more
+            </button>
+          </div>
         )}
       </div>
     </div>

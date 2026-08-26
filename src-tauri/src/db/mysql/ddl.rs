@@ -77,6 +77,51 @@ pub fn build_drop_table_ddl(schema: &str, table: &str) -> Vec<String> {
     vec![format!("DROP TABLE {}", quote_qualified(schema, table))]
 }
 
+pub fn build_truncate_table_ddl(schema: &str, table: &str) -> Vec<String> {
+    vec![format!("TRUNCATE TABLE {}", quote_qualified(schema, table))]
+}
+
+/// Produces ALTER TABLE statements to change a column's type, nullability,
+/// and/or default. MySQL's MODIFY COLUMN takes the full definition, so type
+/// changes and NOT NULL are combined; renames go through `TableDiff`.
+pub fn build_edit_column_ddl(
+    schema: &str,
+    table: &str,
+    column: &str,
+    new_type: Option<&str>,
+    nullable: Option<bool>,
+    default: Option<Option<&str>>,
+) -> Result<Vec<String>, DbError> {
+    let qualified = quote_qualified(schema, table);
+    let quoted = quote_ident(column);
+
+    let has_type = new_type.is_some();
+    let has_null = nullable.is_some();
+    let has_default = default.is_some();
+    if !has_type && !has_null && !has_default {
+        return Err(DbError::Other("no column changes to apply".into()));
+    }
+
+    // MySQL MODIFY COLUMN needs the full type + constraints. If only
+    // nullability/default changed, we still need a type; the caller should
+    // supply the current type. Fall back to an error if absent.
+    let ty = new_type.ok_or_else(|| {
+        DbError::Other("MySQL edit-column requires the column type".into())
+    })?;
+    let mut sql = format!("ALTER TABLE {qualified} MODIFY COLUMN {quoted} {ty}");
+    if let Some(nullable) = nullable {
+        sql.push_str(if nullable { "" } else { " NOT NULL" });
+    }
+    if let Some(default) = default {
+        match default {
+            Some(d) if !d.is_empty() => sql.push_str(&format!(" DEFAULT {d}")),
+            _ => sql.push_str(" DEFAULT NULL"),
+        }
+    }
+
+    Ok(vec![sql])
+}
+
 pub async fn execute_ddl(pool: &MySqlPool, statements: &[String]) -> Result<(), DbError> {
     for statement in statements {
         sqlx::query(sqlx::AssertSqlSafe(statement.clone()))

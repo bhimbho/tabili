@@ -77,6 +77,52 @@ pub fn build_drop_table_ddl(schema: &str, table: &str) -> Vec<String> {
     vec![format!("DROP TABLE {}", quote_qualified(schema, table))]
 }
 
+pub fn build_truncate_table_ddl(schema: &str, table: &str) -> Vec<String> {
+    vec![format!("TRUNCATE TABLE {}", quote_qualified(schema, table))]
+}
+
+/// Produces ALTER TABLE statements to change a column's type, nullability,
+/// and/or default. Renames are handled separately through `TableDiff`.
+pub fn build_edit_column_ddl(
+    schema: &str,
+    table: &str,
+    column: &str,
+    new_type: Option<&str>,
+    nullable: Option<bool>,
+    default: Option<Option<&str>>,
+) -> Result<Vec<String>, DbError> {
+    let qualified = quote_qualified(schema, table);
+    let quoted = quote_ident(column);
+    let mut statements = Vec::new();
+
+    if let Some(ty) = new_type {
+        statements.push(format!(
+            "ALTER TABLE {qualified} ALTER COLUMN {quoted} TYPE {ty}"
+        ));
+    }
+    if let Some(nullable) = nullable {
+        statements.push(format!(
+            "ALTER TABLE {qualified} ALTER COLUMN {quoted} {} NOT NULL",
+            if nullable { "DROP" } else { "SET" }
+        ));
+    }
+    if let Some(default) = default {
+        match default {
+            Some(d) if !d.is_empty() => statements.push(format!(
+                "ALTER TABLE {qualified} ALTER COLUMN {quoted} SET DEFAULT {d}"
+            )),
+            _ => statements.push(format!(
+                "ALTER TABLE {qualified} ALTER COLUMN {quoted} DROP DEFAULT"
+            )),
+        }
+    }
+
+    if statements.is_empty() {
+        return Err(DbError::Other("no column changes to apply".into()));
+    }
+    Ok(statements)
+}
+
 pub async fn execute_ddl(pool: &PgPool, statements: &[String]) -> Result<(), DbError> {
     let mut tx = pool.begin().await.map_err(|e| DbError::Query(e.to_string()))?;
     for statement in statements {
