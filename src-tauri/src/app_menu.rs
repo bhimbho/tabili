@@ -52,7 +52,7 @@ pub fn build_menu<R: Runtime>(
     // --- App menu (macOS convention: app name first) ---
     let app_menu = Submenu::with_items(
         app,
-        "tabili",
+        "Tabili",
         true,
         &[
             &PredefinedMenuItem::about(app, None, None)?,

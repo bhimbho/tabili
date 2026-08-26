@@ -22,7 +22,7 @@ pub struct AppInfo {
 #[specta::specta]
 pub fn app_info() -> AppInfo {
     AppInfo {
-        name: "tabili".to_string(),
+        name: "Tabili".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     }
 }

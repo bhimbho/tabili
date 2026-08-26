@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tabili",
+  "productName": "Tabili",
   "version": "0.1.0",
   "identifier": "com.tabili.app",
   "build": {
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "tabili",
+        "title": "Tabili",
         "width": 1280,
         "height": 800,
         "minWidth": 840,

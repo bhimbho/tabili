@@ -35,7 +35,7 @@ export function ConsolePanel() {
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {entries.length === 0 ? (
           <p className="text-xs text-neutral-600">
-            Statements run by tabili appear here as they execute.
+            Statements run by Tabili appear here as they execute.
           </p>
         ) : (
           <div className="space-y-1.5">

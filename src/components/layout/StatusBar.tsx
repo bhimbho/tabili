@@ -52,7 +52,7 @@ export function StatusBar({ appVersion }: StatusBarProps) {
         >
           Console
         </button>
-        <span>{appVersion ? `tabili v${appVersion}` : "tabili"}</span>
+        <span>{appVersion ? `Tabili v${appVersion}` : "Tabili"}</span>
       </div>
     </footer>
   );
