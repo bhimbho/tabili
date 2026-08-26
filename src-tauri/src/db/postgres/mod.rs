@@ -67,6 +67,16 @@ impl PostgresDriver {
 
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(config.max_connections.max(1))
+            // Reconnect fast: if a checked-out connection (e.g. one that died
+            // when its SSH tunnel closed) is gone, acquiring a replacement should
+            // give up in seconds rather than queue behind a dead pool. Idle
+            // connections that outlive their usefulness are recycled, and every
+            // borrow re-validates with a cheap round-trip so a silently-dropped
+            // tunnel surfaces as an error instead of a hang.
+            .acquire_timeout(std::time::Duration::from_secs(10))
+            .idle_timeout(std::time::Duration::from_secs(300))
+            .max_lifetime(std::time::Duration::from_secs(1800))
+            .test_before_acquire(true)
             .connect_with(opts)
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;

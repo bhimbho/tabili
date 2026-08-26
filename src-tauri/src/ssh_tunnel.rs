@@ -167,11 +167,30 @@ pub async fn open_tunnel(
         ..client::Config::default()
     });
     let handler = TofuHandler { host: cfg.host.clone(), port: cfg.port };
-    let mut handle = client::connect(config, (cfg.host.as_str(), cfg.port), handler)
-        .await
-        .map_err(|e| DbError::Connection(format!("SSH connect failed: {e}")))?;
+    // A reachable-but-dead SSH endpoint (firewall silently dropping SYN, a NAT
+    // entry gone) would otherwise make russh's default connect hang for a long
+    // time. Cap the handshake so a bad tunnel surfaces in seconds, not minutes.
+    let mut handle = match tokio::time::timeout(
+        Duration::from_secs(15),
+        client::connect(config, (cfg.host.as_str(), cfg.port), handler),
+    )
+    .await
+    {
+        Ok(Ok(handle)) => handle,
+        Ok(Err(e)) => return Err(DbError::Connection(format!("SSH connect failed: {e}"))),
+        Err(_) => {
+            return Err(DbError::Connection(format!(
+                "SSH connection to {}:{} timed out",
+                cfg.host, cfg.port
+            )))
+        }
+    };
 
-    authenticate(&mut handle, cfg).await?;
+    // Authenticate under a timeout too — a server that accepts the TCP/SSH
+    // handshake but stalls on auth should not leave the user waiting.
+    tokio::time::timeout(Duration::from_secs(15), authenticate(&mut handle, cfg))
+        .await
+        .map_err(|_| DbError::Connection(format!("SSH authentication to {} timed out", cfg.host)))??;
 
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .await

@@ -71,6 +71,14 @@ impl MySqlDriver {
         }
         let pool = sqlx::mysql::MySqlPoolOptions::new()
             .max_connections(config.max_connections.max(1))
+            // Reconnect fast: give up acquiring a replacement in seconds rather
+            // than queueing behind a dead pool, recycle stale idle connections,
+            // and re-validate every borrow so a dropped tunnel surfaces as an
+            // error instead of a hang.
+            .acquire_timeout(std::time::Duration::from_secs(10))
+            .idle_timeout(std::time::Duration::from_secs(300))
+            .max_lifetime(std::time::Duration::from_secs(1800))
+            .test_before_acquire(true)
             .connect_with(opts)
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;
