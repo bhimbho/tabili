@@ -31,14 +31,14 @@ export type TableTab = (typeof TABS)[number];
 
 function TabStrip({ tab, onChange }: { tab: TableTab; onChange: (t: TableTab) => void }) {
   return (
-    <div className="flex items-center gap-0.5 rounded-md bg-black/25 p-0.5">
+    <div className="flex items-center gap-0.5 rounded-md bg-(--hover) p-0.5">
       {TABS.map((t) => (
         <button
           key={t}
           onClick={() => onChange(t)}
           className={clsx(
             "rounded px-2.5 py-0.5 text-xs font-medium capitalize transition-colors",
-            tab === t ? "bg-neutral-700 text-neutral-100" : "text-neutral-400 hover:text-neutral-200",
+            tab === t ? "bg-(--active) text-(--text)" : "text-(--text-muted) hover:text-(--text)",
           )}
         >
           {t === "ddl" ? "DDL" : t}
@@ -237,16 +237,16 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
         {tab === "data" && (
           <>
             {isLoading && (
-              <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+              <div className="flex h-full items-center justify-center text-sm text-(--text-faint)">
                 Loading rows…
               </div>
             )}
             {error && (
               <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-                <p className="text-sm text-red-400">{friendlyError(error)}</p>
+                <p className="text-sm text-(--danger)">{friendlyError(error)}</p>
                 <button
                   onClick={() => useConsoleStore.getState().setOpen(true)}
-                  className="text-xs text-neutral-500 underline-offset-2 hover:underline"
+                  className="text-xs text-(--text-faint) underline-offset-2 hover:underline"
                 >
                   Show details in console
                 </button>

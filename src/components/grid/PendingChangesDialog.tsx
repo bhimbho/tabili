@@ -43,17 +43,17 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 flex max-h-[70vh] w-[600px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-neutral-800 bg-neutral-900 shadow-xl shadow-black/40 focus:outline-none">
-          <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
-            <Dialog.Title className="text-sm font-semibold text-neutral-100">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 flex max-h-[70vh] w-[600px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-(--border) bg-(--surface-raised) shadow-xl shadow-black/40 focus:outline-none">
+          <div className="flex items-center justify-between border-b border-(--border) px-4 py-3">
+            <Dialog.Title className="text-sm font-semibold text-(--text)">
               Pending Changes {total > 0 ? `(${total})` : ""}
             </Dialog.Title>
-            <span className="text-xs text-neutral-600">⌘S commits without this dialog</span>
+            <span className="text-xs text-(--text-faint)">⌘S commits without this dialog</span>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3">
-            {total === 0 && <p className="text-sm text-neutral-500">No pending changes.</p>}
+            {total === 0 && <p className="text-sm text-(--text-muted)">No pending changes.</p>}
 
             {editGroups.length > 0 && (
               <Section title="Updates">
@@ -78,9 +78,9 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
             )}
 
             {errors.length > 0 && (
-              <div className="mt-3 space-y-1 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2">
+              <div className="mt-3 space-y-1 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2">
                 {errors.map((e, i) => (
-                  <p key={i} className="text-xs text-red-300">
+                  <p key={i} className="text-xs text-(--danger)">
                     {e}
                   </p>
                 ))}
@@ -88,18 +88,18 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
             )}
           </div>
 
-          <div className="flex items-center justify-between border-t border-neutral-800 px-4 py-3">
+          <div className="flex items-center justify-between border-t border-(--border) px-4 py-3">
             <button
               onClick={handleDiscard}
               disabled={total === 0 || committing}
-              className="rounded-md px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200 disabled:opacity-40"
+              className="rounded-md px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text) disabled:opacity-40"
             >
               Discard
             </button>
             <button
               onClick={handleCommit}
               disabled={total === 0 || committing}
-              className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {committing ? "Committing…" : "Commit"}
             </button>
@@ -113,7 +113,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mb-3">
-      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-neutral-500">{title}</p>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-(--text-faint)">{title}</p>
       <div className="space-y-1">{children}</div>
     </div>
   );
@@ -121,7 +121,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function CodeLine({ children }: { children: ReactNode }) {
   return (
-    <pre className="selectable overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-xs text-neutral-300">
+    <pre className="selectable overflow-x-auto rounded-md bg-(--surface-sunken) px-2 py-1.5 font-mono text-xs text-(--text-muted)">
       {children}
     </pre>
   );

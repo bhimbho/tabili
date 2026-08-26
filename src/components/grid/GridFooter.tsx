@@ -15,7 +15,7 @@ interface GridFooterProps {
 }
 
 const pageButton =
-  "flex h-5 w-5 items-center justify-center rounded text-xs text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
+  "flex h-5 w-5 items-center justify-center rounded text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text) disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent";
 
 /**
  * The bar under the grid: which view you are in on the left, where you are in
@@ -32,12 +32,12 @@ export function GridFooter({
   busy,
 }: GridFooterProps) {
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-t border-black/40 bg-white/[0.02] px-3">
+    <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-t border-(--border) bg-(--surface-sunken) px-3">
       {children}
 
       {showPaging && (
         <div className="flex shrink-0 items-center gap-1">
-          <span className="text-xs tabular-nums text-neutral-500">
+          <span className="text-xs tabular-nums text-(--text-faint)">
             {busy
               ? "…"
               : rowCount === 0

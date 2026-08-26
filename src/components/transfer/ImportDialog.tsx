@@ -39,7 +39,7 @@ function Check({
         onChange={(e) => onChange(e.target.checked)}
         className="accent-indigo-500"
       />
-      <span className="text-xs text-neutral-300">{label}</span>
+      <span className="text-xs text-(--text-muted)">{label}</span>
     </label>
   );
 }
@@ -130,12 +130,12 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
   return (
     <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 max-h-[85vh] w-[520px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
-          <Dialog.Title className="text-base font-semibold text-neutral-100">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 max-h-[85vh] w-[520px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <Dialog.Title className="text-base font-semibold text-(--text)">
             {source === "csv" ? "Import from CSV" : "Import from SQL Dump"}
           </Dialog.Title>
-          <Dialog.Description className="mt-1 text-sm text-neutral-500">
+          <Dialog.Description className="mt-1 text-sm text-(--text-faint)">
             {source === "csv"
               ? "Rows are appended to an existing table."
               : "Statements run in order against the active connection."}
@@ -143,18 +143,18 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
 
           <div className="mt-4 space-y-3">
             <div>
-              <span className="mb-1 block text-xs font-medium text-neutral-500">File</span>
+              <span className="mb-1 block text-xs font-medium text-(--text-faint)">File</span>
               <div className="flex gap-2">
                 <input
                   value={fileName ?? ""}
                   readOnly
                   placeholder="No file selected"
                   title={path || undefined}
-                  className="w-full flex-1 rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-400 outline-none"
+                  className="w-full flex-1 rounded-lg border border-(--border) bg-(--surface-sunken) px-3 py-1.5 text-sm text-(--text-muted) outline-none"
                 />
                 <button
                   onClick={pickFile}
-                  className="shrink-0 rounded-lg border border-neutral-700 px-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
+                  className="shrink-0 rounded-lg border border-(--border-strong) px-3 text-sm font-medium text-(--text) transition-colors hover:bg-(--hover)"
                 >
                   Choose…
                 </button>
@@ -164,7 +164,7 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
             {source === "csv" && (
               <>
                 <div>
-                  <span className="mb-1 block text-xs font-medium text-neutral-500">
+                  <span className="mb-1 block text-xs font-medium text-(--text-faint)">
                     Into table
                   </span>
                   <Select
@@ -187,7 +187,7 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
                     label="Treat empty fields as NULL"
                   />
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-neutral-400">Delimiter</span>
+                    <span className="text-xs text-(--text-muted)">Delimiter</span>
                     <div className="w-40">
                       <Select
                         value={options.delimiter}
@@ -199,8 +199,8 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
                 </div>
 
                 {preview && preview.sampleRows.length > 0 && (
-                  <div className="rounded-lg border border-neutral-800 bg-neutral-950/60">
-                    <div className="border-b border-neutral-800 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                  <div className="rounded-lg border border-(--border) bg-(--surface-sunken)">
+                    <div className="border-b border-(--border) px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-(--text-faint)">
                       Preview
                     </div>
                     <div className="max-h-40 overflow-auto p-2">
@@ -209,7 +209,7 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
                           <thead>
                             <tr>
                               {preview.columns.map((c) => (
-                                <th key={c} className="px-2 py-1 font-medium text-neutral-400">
+                                <th key={c} className="px-2 py-1 font-medium text-(--text-faint)">
                                   {c}
                                 </th>
                               ))}
@@ -218,9 +218,9 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
                         )}
                         <tbody>
                           {preview.sampleRows.slice(0, 5).map((row, i) => (
-                            <tr key={i} className="border-t border-neutral-800/60">
+                            <tr key={i} className="border-t border-(--border)">
                               {row.map((cell, j) => (
-                                <td key={j} className="truncate px-2 py-1 text-neutral-300">
+                                <td key={j} className="truncate px-2 py-1 text-(--text-muted)">
                                   {cell}
                                 </td>
                               ))}
@@ -236,7 +236,7 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
           </div>
 
           {error && (
-            <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+            <div className="mt-3 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2 text-xs text-(--danger)">
               {error}
             </div>
           )}
@@ -249,14 +249,14 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
           <div className="mt-5 flex items-center justify-end gap-2">
             <button
               onClick={onClose}
-              className="rounded-lg px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+              className="rounded-lg px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text)"
             >
               {done ? "Done" : "Cancel"}
             </button>
             <button
               onClick={handleImport}
               disabled={!canImport}
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Importing…" : "Import"}
             </button>

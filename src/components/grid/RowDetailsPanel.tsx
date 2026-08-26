@@ -133,19 +133,19 @@ export function RowDetailsPanel({
   }
 
   const fieldBase =
-    "selectable w-full rounded-md border bg-neutral-950 px-2 py-1 text-xs outline-none transition-colors";
+    "selectable w-full rounded-md border border-(--border) bg-(--surface-sunken) px-2 py-1 text-xs text-(--text) outline-none transition-colors focus:border-(--accent)";
 
   return (
     <aside
       style={{ width }}
-      className="surface-gradient flex shrink-0 flex-col border-l border-black/50 bg-[#151517]"
+      className="flex shrink-0 flex-col border-l border-(--border) bg-(--surface)"
     >
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-800 px-3">
-        <span className="text-xs font-semibold text-neutral-200">Details</span>
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-(--border) px-3">
+        <span className="text-xs font-semibold text-(--text)">Details</span>
         <button
           onClick={onClose}
           title="Hide details"
-          className="rounded px-1.5 text-xs text-neutral-500 transition-colors hover:text-neutral-200"
+          className="rounded px-1.5 text-xs text-(--text-faint) transition-colors hover:text-(--text-muted)"
         >
           ×
         </button>
@@ -161,7 +161,7 @@ export function RowDetailsPanel({
             columnInfos={columnInfos}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-neutral-600">
+          <div className="flex flex-1 items-center justify-center px-6 text-center text-xs text-(--text-faint)">
             No table open
           </div>
         )
@@ -172,7 +172,7 @@ export function RowDetailsPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search for field…"
-              className="w-full rounded-md border border-neutral-800 bg-black/30 px-2 py-1 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500"
+              className="w-full rounded-md border border-(--border) bg-(--surface-sunken) px-2 py-1 text-xs text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--accent)"
             />
           </div>
 
@@ -199,9 +199,9 @@ export function RowDetailsPanel({
                 <div key={name} className="mb-3">
                   <div className="mb-1 flex items-baseline gap-1.5">
                     {info?.isPrimaryKey && <KeyIcon className="h-2.5 w-2.5 text-amber-500" />}
-                    <span className="text-xs font-medium text-neutral-300">{name}</span>
+                    <span className="text-xs font-medium text-(--text-muted)">{name}</span>
                     {dirty && <span className="text-[10px] text-amber-500">edited</span>}
-                    <span className="ml-auto font-mono text-[10px] text-neutral-600">
+                    <span className="ml-auto font-mono text-[10px] text-(--text-faint)">
                       {info?.dataType}
                     </span>
                   </div>
@@ -237,18 +237,18 @@ export function RowDetailsPanel({
                           className={`${fieldBase} ${
                             dirty
                               ? "border-amber-700/60 text-amber-300"
-                              : "border-neutral-800 text-neutral-200"
-                          } focus:border-indigo-500`}
+                              : "border-(--border) text-(--text)"
+                          }`}
                         />
                       ) : (
-                        <div className={`${fieldBase} border-neutral-800 text-neutral-200`}>
+                        <div className={`${fieldBase} text-(--text)`}>
                           {display(value)}
                         </div>
                       )}
                       <button
                         onClick={() => onFollowForeignKey(fk, value)}
                         title={`Go to ${fk.table}.${fk.column}`}
-                        className="shrink-0 rounded-md border border-neutral-800 px-2 text-xs text-neutral-400 transition-colors hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100"
+                        className="shrink-0 rounded-md border border-(--border) px-2 text-xs text-(--text-muted) transition-colors hover:border-(--border-strong) hover:bg-(--hover) hover:text-(--text)"
                       >
                         →
                       </button>
@@ -263,11 +263,11 @@ export function RowDetailsPanel({
                         className={`${fieldBase} resize-y font-mono text-[11px] ${
                           dirty
                             ? "border-amber-700/60 text-amber-300"
-                            : "border-neutral-800 text-neutral-300"
-                        } focus:border-indigo-500`}
+                            : "border-(--border) text-(--text-muted)"
+                        }`}
                       />
                     ) : (
-                      <pre className="selectable max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1 font-mono text-[11px] text-neutral-300">
+                      <pre className="selectable max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-(--border) bg-(--surface-sunken) px-2 py-1 font-mono text-[11px] text-(--text-muted)">
                         {display(value)}
                       </pre>
                     )
@@ -281,13 +281,13 @@ export function RowDetailsPanel({
                       className={`${fieldBase} ${
                         dirty
                           ? "border-amber-700/60 text-amber-300"
-                          : "border-neutral-800 text-neutral-200"
-                      } placeholder:italic placeholder:text-neutral-600 focus:border-indigo-500`}
+                          : "border-(--border) text-(--text)"
+                      } placeholder:italic placeholder:text-(--text-faint)`}
                     />
                   ) : (
                     <div
-                      className={`${fieldBase} truncate border-neutral-800 ${
-                        value?.type === "Null" ? "italic text-neutral-600" : "text-neutral-200"
+                      className={`${fieldBase} truncate ${
+                        value?.type === "Null" ? "italic text-(--text-faint)" : "text-(--text)"
                       }`}
                     >
                       {value?.type === "Null" ? "NULL" : display(value)}

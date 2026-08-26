@@ -13,9 +13,9 @@ interface TableDetailsPanelProps {
 function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
     <section className="mb-4">
-      <h3 className="mb-1.5 flex items-baseline gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+      <h3 className="mb-1.5 flex items-baseline gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-(--text-faint)">
         {title}
-        {count !== undefined && <span className="font-normal text-neutral-600">{count}</span>}
+        {count !== undefined && <span className="font-normal text-(--text-faint)">{count}</span>}
       </h3>
       {children}
     </section>
@@ -25,8 +25,8 @@ function Section({ title, count, children }: { title: string; count?: number; ch
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 py-0.5">
-      <span className="shrink-0 text-xs text-neutral-500">{label}</span>
-      <span className="selectable truncate text-xs text-neutral-200" title={value}>
+      <span className="shrink-0 text-xs text-(--text-faint)">{label}</span>
+      <span className="selectable truncate text-xs text-(--text)" title={value}>
         {value}
       </span>
     </div>
@@ -34,7 +34,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-neutral-600">{children}</p>;
+  return <p className="text-xs text-(--text-faint)">{children}</p>;
 }
 
 /**
@@ -66,14 +66,14 @@ export function TableDetailsPanel({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search for field…"
-          className="w-full rounded-md border border-neutral-800 bg-black/30 px-2 py-1 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500"
+          className="w-full rounded-md border border-(--border) bg-(--surface-sunken) px-2 py-1 text-xs text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--accent)"
         />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <div className="mb-3 flex items-center gap-2">
-          <TableIcon className="h-4 w-4 shrink-0 text-neutral-500" />
-          <span className="selectable truncate text-sm font-semibold text-neutral-100">{table}</span>
+          <TableIcon className="h-4 w-4 shrink-0 text-(--text-faint)" />
+          <span className="selectable truncate text-sm font-semibold text-(--text)">{table}</span>
         </div>
 
         <Section title="Overview">
@@ -94,10 +94,10 @@ export function TableDetailsPanel({
               {shownColumns.map((c) => (
                 <li key={c.name} className="flex items-baseline gap-1.5">
                   {c.isPrimaryKey && <KeyIcon className="h-2.5 w-2.5 shrink-0 text-amber-500" />}
-                  <span className="selectable truncate text-xs text-neutral-200">{c.name}</span>
-                  {!c.nullable && <span className="text-[10px] text-neutral-600">not null</span>}
+                  <span className="selectable truncate text-xs text-(--text)">{c.name}</span>
+                  {!c.nullable && <span className="text-[10px] text-(--text-faint)">not null</span>}
                   <span
-                    className="ml-auto shrink-0 truncate font-mono text-[10px] text-neutral-600"
+                    className="ml-auto shrink-0 truncate font-mono text-[10px] text-(--text-faint)"
                     title={c.dataType}
                   >
                     {c.dataType}
@@ -116,12 +116,12 @@ export function TableDetailsPanel({
               {indexes.map((i) => (
                 <li key={i.name}>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="selectable truncate text-xs text-neutral-200">{i.name}</span>
+                    <span className="selectable truncate text-xs text-(--text)">{i.name}</span>
                     {i.isUnique && (
-                      <span className="shrink-0 text-[10px] text-indigo-400">unique</span>
+                      <span className="shrink-0 text-[10px] text-(--accent)">unique</span>
                     )}
                   </div>
-                  <span className="font-mono text-[10px] text-neutral-600">
+                  <span className="font-mono text-[10px] text-(--text-faint)">
                     {i.columns.join(", ")}
                   </span>
                 </li>
@@ -137,10 +137,10 @@ export function TableDetailsPanel({
             <ul className="space-y-1">
               {foreignKeys.map((fk) => (
                 <li key={fk.name}>
-                  <div className="selectable truncate text-xs text-neutral-200">
+                  <div className="selectable truncate text-xs text-(--text)">
                     {fk.columns.join(", ")}
                   </div>
-                  <span className="font-mono text-[10px] text-neutral-600">
+                  <span className="font-mono text-[10px] text-(--text-faint)">
                     → {fk.referencedTable}.{fk.referencedColumns.join(", ")}
                   </span>
                 </li>
@@ -156,8 +156,8 @@ export function TableDetailsPanel({
             <ul className="space-y-1">
               {triggers.map((t) => (
                 <li key={t.name}>
-                  <div className="selectable truncate text-xs text-neutral-200">{t.name}</div>
-                  <span className="font-mono text-[10px] text-neutral-600">
+                  <div className="selectable truncate text-xs text-(--text)">{t.name}</div>
+                  <span className="font-mono text-[10px] text-(--text-faint)">
                     {t.timing} {t.event}
                   </span>
                 </li>

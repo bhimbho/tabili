@@ -6,9 +6,9 @@ export function Panel({ children }: { children: ReactNode }) {
 
 export function DataTable({ head, children }: { head: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-800">
+    <div className="overflow-x-auto rounded-lg border border-(--border)">
       <table className="w-full text-left text-xs">
-        <thead className="bg-neutral-900/60 text-neutral-500">
+        <thead className="bg-(--hover) text-(--text-faint)">
           <tr>
             {head.map((h, i) => (
               <th key={`${h}-${i}`} className="whitespace-nowrap px-3 py-2 font-medium">
@@ -17,7 +17,7 @@ export function DataTable({ head, children }: { head: string[]; children: ReactN
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-neutral-800/70">{children}</tbody>
+        <tbody className="divide-y divide-(--border)">{children}</tbody>
       </table>
     </div>
   );
@@ -25,16 +25,16 @@ export function DataTable({ head, children }: { head: string[]; children: ReactN
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-lg border border-neutral-800 px-3 py-3 text-xs text-neutral-600">{children}</p>
+    <p className="rounded-lg border border-(--border) px-3 py-3 text-xs text-(--text-faint)">{children}</p>
   );
 }
 
 export function PanelState({ loading, error }: { loading?: boolean; error?: unknown }) {
   if (loading) {
-    return <div className="px-1 py-2 text-xs text-neutral-500">Loading…</div>;
+    return <div className="px-1 py-2 text-xs text-(--text-faint)">Loading…</div>;
   }
   if (error) {
-    return <div className="px-1 py-2 text-xs text-red-400">{(error as Error).message}</div>;
+    return <div className="px-1 py-2 text-xs text-(--danger)">{(error as Error).message}</div>;
   }
   return null;
 }

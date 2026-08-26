@@ -65,11 +65,11 @@ export function ContextMenu({ position, items, onClose }: ContextMenuProps) {
       ref={ref}
       onMouseDown={(e) => e.stopPropagation()}
       style={{ left: adjusted?.x ?? position.x, top: adjusted?.y ?? position.y }}
-      className="fixed z-[10000] min-w-[180px] overflow-hidden rounded-lg border border-neutral-700 bg-neutral-800/95 py-1 shadow-xl shadow-black/50 backdrop-blur-sm"
+      className="fixed z-[10000] min-w-[180px] overflow-hidden rounded-lg border border-(--border-strong) bg-(--surface-raised) py-1 shadow-xl shadow-black/50 backdrop-blur-sm"
     >
       {items.map((item, i) =>
         item === null ? (
-          <div key={`sep-${i}`} className="my-1 h-px bg-neutral-700" />
+          <div key={`sep-${i}`} className="my-1 h-px bg-(--border)" />
         ) : (
           <button
             key={item.label}
@@ -80,8 +80,8 @@ export function ContextMenu({ position, items, onClose }: ContextMenuProps) {
             }}
             className={`block w-full px-3 py-1 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               item.danger
-                ? "text-red-400 hover:bg-red-500/20"
-                : "text-neutral-200 hover:bg-indigo-600 hover:text-white"
+                ? "text-(--danger) hover:bg-(--danger)/20"
+                : "text-(--text) hover:bg-(--accent) hover:text-(--accent-text)"
             }`}
           >
             {item.label}

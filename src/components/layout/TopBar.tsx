@@ -4,9 +4,10 @@ import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
 import { useChangesStore } from "../../stores/changesStore";
 import { useLayoutStore } from "../../stores/layoutStore";
+import { useThemeStore } from "../../stores/themeStore";
 import { useServerInfo } from "../../hooks/useConnections";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { PanelIcon, PanelRightIcon, ReloadIcon } from "../ui/icons";
+import { MoonIcon, PanelIcon, PanelRightIcon, ReloadIcon, SunIcon } from "../ui/icons";
 
 /** Connections marked red are treated as production. */
 function isDanger(color?: string | null) {
@@ -25,6 +26,7 @@ export function TopBar() {
   const setConnected = useConnectionsStore((s) => s.setConnected);
   const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
   const { sidebarVisible, toggleSidebar, detailsVisible, toggleDetails } = useLayoutStore();
+  const { mode: themeMode, toggle: toggleTheme } = useThemeStore();
   const pendingCount = useChangesStore((s) => s.count());
   const discardAll = useChangesStore((s) => s.discardAll);
   const queryClient = useQueryClient();
@@ -137,6 +139,13 @@ export function TopBar() {
         className={`${iconButton} ${detailsVisible ? "text-neutral-200" : ""}`}
       >
         <PanelRightIcon className="h-4 w-4" />
+      </button>
+      <button
+        onClick={toggleTheme}
+        title={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        className={iconButton}
+      >
+        {themeMode === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
       </button>
 
       {fetching && (

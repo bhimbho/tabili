@@ -41,10 +41,10 @@ export function HistoryPanel({ search }: { search: string }) {
     },
   ];
 
-  if (isLoading) return <p className="px-3 py-2 text-xs text-neutral-500">Loading…</p>;
+  if (isLoading) return <p className="px-3 py-2 text-xs text-(--text-faint)">Loading…</p>;
   if (shown.length === 0) {
     return (
-      <p className="px-3 py-2 text-xs text-neutral-600">
+      <p className="px-3 py-2 text-xs text-(--text-faint)">
         {needle ? "No matches." : "Nothing run yet."}
       </p>
     );
@@ -59,18 +59,18 @@ export function HistoryPanel({ search }: { search: string }) {
             setTarget(e.sql);
             menu.open(ev);
           }}
-          className="cursor-default rounded-md px-2 py-1 transition-colors hover:bg-white/5"
+          className="cursor-default rounded-md px-2 py-1 transition-colors hover:bg-(--hover)"
           title={e.error ? friendlyError(e.error) : e.sql}
         >
           <div
-            className={`truncate font-mono text-[11px] ${e.success ? "text-neutral-300" : "text-red-400"}`}
+            className={`truncate font-mono text-[11px] ${e.success ? "text-(--text-muted)" : "text-(--danger)"}`}
           >
             {e.sql}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-neutral-600">
+          <div className="flex items-center gap-2 text-[10px] text-(--text-faint)">
             <span>{when(e.executedAt)}</span>
             <span>· {e.durationMs} ms</span>
-            {!e.success && <span className="text-red-500">· failed</span>}
+            {!e.success && <span className="text-(--danger)">· failed</span>}
           </div>
         </div>
       ))}
@@ -104,10 +104,10 @@ export function QueriesPanel({ search }: { search: string }) {
     },
   ];
 
-  if (isLoading) return <p className="px-3 py-2 text-xs text-neutral-500">Loading…</p>;
+  if (isLoading) return <p className="px-3 py-2 text-xs text-(--text-faint)">Loading…</p>;
   if (shown.length === 0) {
     return (
-      <p className="px-3 py-2 text-xs text-neutral-600">
+      <p className="px-3 py-2 text-xs text-(--text-faint)">
         {needle
           ? "No matches."
           : "No saved queries. Right-click a statement in History to save it here."}
@@ -124,11 +124,11 @@ export function QueriesPanel({ search }: { search: string }) {
             setTarget({ id: q.id, sql: q.sql });
             menu.open(ev);
           }}
-          className="cursor-default rounded-md px-2 py-1 transition-colors hover:bg-white/5"
+          className="cursor-default rounded-md px-2 py-1 transition-colors hover:bg-(--hover)"
           title={q.sql}
         >
-          <div className="truncate text-xs text-neutral-200">{q.name}</div>
-          <div className="truncate font-mono text-[10px] text-neutral-600">{q.sql}</div>
+          <div className="truncate text-xs text-(--text)">{q.name}</div>
+          <div className="truncate font-mono text-[10px] text-(--text-faint)">{q.sql}</div>
         </div>
       ))}
       <ContextMenu position={menu.position} items={items} onClose={menu.close} />

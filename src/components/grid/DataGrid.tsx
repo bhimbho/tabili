@@ -13,7 +13,8 @@ import type { ColumnInfo, DbValue } from "../../bindings";
 import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
 import { ContextMenu, type MenuEntry, type MenuPosition } from "../ui/ContextMenu";
 import type { FkMap } from "../../stores/detailsStore";
-import { darkGridTheme, DELETE_THEME, EDIT_THEME, INSERT_THEME } from "./gridTheme";
+import { useThemeStore } from "../../stores/themeStore";
+import { DELETE_THEME, EDIT_THEME, gridThemeFor, INSERT_THEME } from "./gridTheme";
 
 export type { FkMap } from "../../stores/detailsStore";
 
@@ -130,6 +131,9 @@ export function DataGrid({
   const [menuTarget, setMenuTarget] = useState<
     { kind: "cell" | "header"; col: number; row: number } | null
   >(null);
+
+  const themeMode = useThemeStore((s) => s.mode);
+  const gridTheme = gridThemeFor(themeMode);
 
   const edits = useChangesStore((s) => s.edits);
   const inserts = useChangesStore((s) => s.inserts);
@@ -611,7 +615,7 @@ export function DataGrid({
         );
       }}
       onKeyDown={onKeyDown}
-      theme={darkGridTheme}
+      theme={gridTheme}
       rowHeight={30}
       headerHeight={32}
       smoothScrollX

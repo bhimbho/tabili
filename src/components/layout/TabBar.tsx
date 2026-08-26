@@ -22,20 +22,20 @@ export function TabBar() {
   }, [visible, activeTabId, setActiveTab]);
 
   if (visible.length === 0) {
-    return <div data-tauri-drag-region className="h-9 shrink-0 border-b border-black/40" />;
+    return <div data-tauri-drag-region className="h-9 shrink-0 border-b border-(--border)" />;
   }
 
   return (
-    <div data-tauri-drag-region className="flex h-9 shrink-0 items-stretch border-b border-black/40">
+    <div data-tauri-drag-region className="flex h-9 shrink-0 items-stretch border-b border-(--border)">
       {visible.map((tab) => (
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
           className={clsx(
-            "group flex items-center gap-2 border-r border-black/40 px-3 text-sm",
+            "group flex items-center gap-2 border-r border-(--border) px-3 text-sm",
             tab.id === activeTabId
-              ? "bg-white/[0.06] text-neutral-100 shadow-[inset_0_-2px_0_0_rgba(99,102,241,0.9)]"
-              : "text-neutral-400 hover:bg-neutral-900/60",
+              ? "bg-(--active) text-(--text) shadow-[inset_0_-2px_0_0_var(--accent)]"
+              : "text-(--text-muted) hover:bg-(--hover)",
           )}
         >
           {tab.title}
@@ -44,7 +44,7 @@ export function TabBar() {
               e.stopPropagation();
               closeTab(tab.id);
             }}
-            className="rounded px-1 text-neutral-500 opacity-0 hover:bg-neutral-800 group-hover:opacity-100"
+            className="rounded px-1 text-(--text-faint) opacity-0 hover:bg-(--active) group-hover:opacity-100"
           >
             ×
           </span>

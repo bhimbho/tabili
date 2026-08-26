@@ -29,7 +29,7 @@ export function Sidebar() {
     <>
       <aside
         style={{ width: sidebarWidth }}
-        className="surface-gradient flex shrink-0 border-r border-black/50 bg-neutral-900/30 text-neutral-300"
+        className="flex shrink-0 border-r border-(--border-strong) bg-(--surface) text-(--text-muted)"
       >
         <ConnectionRail onNewConnection={() => setDialogOpen(true)} />
         <ObjectPanel />

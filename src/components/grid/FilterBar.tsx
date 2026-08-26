@@ -72,7 +72,7 @@ interface FilterBarProps {
 }
 
 const iconBtn =
-  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-neutral-800 text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100";
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-(--border) text-(--text-muted) transition-colors hover:bg-(--active) hover:text-(--text)";
 
 export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, generatedSql }: FilterBarProps) {
   const [showSql, setShowSql] = useState(false);
@@ -118,11 +118,11 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
 
   if (drafts.length === 0) {
     return (
-      <div className="shrink-0 border-b border-black/40 bg-black/15 px-3 py-1.5">
+      <div className="shrink-0 border-b border-(--border) bg-(--hover) px-3 py-1.5">
         <button
           onClick={() => onChange([newDraft(columns)])}
           disabled={columns.length === 0}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100 disabled:opacity-40"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-(--active) hover:text-(--text) disabled:opacity-40"
         >
           <PlusIcon className="h-3 w-3" />
           Add filter
@@ -132,7 +132,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
   }
 
   return (
-    <div className="shrink-0 border-b border-black/40 bg-black/15 px-3 py-2">
+    <div className="shrink-0 border-b border-(--border) bg-(--hover) px-3 py-2">
       {/* One filter per row, stacked, so many filters stay readable. */}
       <div className="space-y-1.5">
         {drafts.map((d, i) => (
@@ -169,12 +169,12 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
               onChange={(e) => update(i, { value: e.target.value })}
               onKeyDown={(e) => e.key === "Enter" && onApply()}
               placeholder={NO_VALUE.includes(d.operator) ? "—" : "value"}
-              className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-0.5 text-xs text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500 disabled:opacity-40"
+              className="min-w-0 flex-1 rounded-md border border-(--border) bg-(--surface-sunken) px-2 py-0.5 text-xs text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--accent) disabled:opacity-40"
             />
             <button
               onClick={() => onApplyOne(i)}
               title="Apply only this filter"
-              className="shrink-0 rounded-md border border-neutral-800 px-2 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+              className="shrink-0 rounded-md border border-(--border) px-2 py-0.5 text-xs text-(--text-muted) transition-colors hover:bg-(--active) hover:text-(--text)"
             >
               Apply
             </button>
@@ -191,7 +191,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
       <div className="mt-2 flex items-center justify-between">
         <button
           onClick={() => setShowSql((s) => !s)}
-          className="rounded-md px-2 py-0.5 text-xs text-neutral-500 transition-colors hover:text-neutral-300"
+          className="rounded-md px-2 py-0.5 text-xs text-(--text-faint) transition-colors hover:text-(--text-muted)"
         >
           {showSql ? "Hide SQL" : "SQL"}
         </button>
@@ -201,13 +201,13 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
               onChange([]);
               setTimeout(onApply, 0);
             }}
-            className="rounded-md px-2.5 py-0.5 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+            className="rounded-md px-2.5 py-0.5 text-xs text-(--text-muted) transition-colors hover:text-(--text)"
           >
             Clear
           </button>
           <button
             onClick={onApply}
-            className="rounded-md bg-indigo-600 px-3 py-0.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
+            className="rounded-md bg-(--accent) px-3 py-0.5 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90"
           >
             Apply All
           </button>
@@ -215,7 +215,7 @@ export function FilterBar({ columns, drafts, onChange, onApply, onApplyOne, gene
       </div>
 
       {showSql && generatedSql && (
-        <pre className="selectable mt-2 overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-[11px] text-neutral-300">
+        <pre className="selectable mt-2 overflow-x-auto rounded-md bg-(--surface-sunken) px-2 py-1.5 font-mono text-[11px] text-(--text-muted)">
           {generatedSql}
         </pre>
       )}

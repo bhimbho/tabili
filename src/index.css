@@ -4,10 +4,55 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* ---------------------------------------------------------------------------
+   Theme tokens. Components read these CSS variables (via arbitrary values like
+   bg-(--surface)) so light and dark share one set of names. `data-theme` on
+   <html> selects the palette; the app store persists the choice.
+   --------------------------------------------------------------------------- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0c0e;
+  --surface: #151517;
+  --surface-raised: #1c1d20;
+  --surface-sunken: #101114;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+  --hover: rgba(255, 255, 255, 0.06);
+  --active: rgba(255, 255, 255, 0.1);
+  --accent: #6366f1;
+  --accent-text: #ffffff;
+  --danger: #ef4444;
+  --grid-line: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f0f0f2;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --text: #18181b;
+  --text-muted: #52525b;
+  --text-faint: #71717a;
+  --hover: rgba(0, 0, 0, 0.05);
+  --active: rgba(0, 0, 0, 0.08);
+  --accent: #4f46e5;
+  --accent-text: #ffffff;
+  --danger: #dc2626;
+  --grid-line: rgba(0, 0, 0, 0.06);
+}
+
 html,
 body,
 #root {
-  background: transparent;
+  background: var(--bg);
+  color: var(--text);
 }
 
 /* A slight vertical gradient stops the large flat panes reading as dead space. */

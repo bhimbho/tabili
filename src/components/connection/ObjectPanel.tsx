@@ -37,11 +37,11 @@ function Group({
     <div className="mb-1">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-1 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 transition-colors hover:text-neutral-300"
+        className="flex w-full items-center gap-1 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-(--text-faint) transition-colors hover:text-(--text-muted)"
       >
         <ChevronIcon className={clsx("h-2.5 w-2.5 transition-transform", open && "rotate-90")} />
         {title}
-        <span className="ml-auto font-normal text-neutral-600">{count}</span>
+        <span className="ml-auto font-normal text-(--text-faint)">{count}</span>
       </button>
       {open && <div>{children}</div>}
     </div>
@@ -213,7 +213,7 @@ export function ObjectPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div data-tauri-drag-region className="h-7 shrink-0" />
+      <div data-tauri-drag-region className="h-9 shrink-0" />
 
       <div className="flex shrink-0 items-center gap-1 px-2 pb-1.5">
         <button
@@ -225,7 +225,7 @@ export function ObjectPanel() {
             setSwitchError(null);
             setShowNewDbForm(false);
           }}
-          className="rounded-md p-1 text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+          className="rounded-md p-1 text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
         >
           <DatabaseIcon className="h-4 w-4" />
         </button>
@@ -240,14 +240,14 @@ export function ObjectPanel() {
               schema: null,
             });
           }}
-          className="rounded-md px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+          className="rounded-md px-2 py-1 text-xs font-medium text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
         >
           SQL
         </button>
         <button
           title="New table"
           onClick={() => setShowNewTable(true)}
-          className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+          className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
         >
           + Table
         </button>
@@ -260,7 +260,7 @@ export function ObjectPanel() {
             onClick={() => setTab(t.key)}
             className={clsx(
               "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-              tab === t.key ? "bg-white/10 text-neutral-100" : "text-neutral-500 hover:text-neutral-300",
+              tab === t.key ? "bg-(--active) text-(--text)" : "text-(--text-faint) hover:text-(--text-muted)",
             )}
           >
             {t.label}
@@ -271,7 +271,7 @@ export function ObjectPanel() {
       <div className="shrink-0 px-2 pb-2">
           <div className="relative">
             <svg
-              className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-500"
+              className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-(--text-faint)"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -283,12 +283,12 @@ export function ObjectPanel() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={tab === "items" ? "Search for item…" : `Search ${tab}…`}
-              className="w-full rounded-md border border-black/30 bg-black/20 py-1 pl-7 pr-6 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-500 focus:border-neutral-500"
+              className="w-full rounded-md border border-(--border) bg-(--surface-sunken) py-1 pl-7 pr-6 text-xs text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--border-strong)"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-neutral-500 hover:text-neutral-200"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-(--text-faint) hover:text-(--text-muted)"
               >
                 ×
               </button>
@@ -301,11 +301,11 @@ export function ObjectPanel() {
         {tab === "queries" && <QueriesPanel search={search} />}
 
         {tab === "items" && !connected && (
-          <p className="px-3 py-2 text-xs text-neutral-600">Not connected. Click its icon to connect.</p>
+          <p className="px-3 py-2 text-xs text-(--text-faint)">Not connected. Click its icon to connect.</p>
         )}
-        {tab === "items" && connected && isLoading && <p className="px-3 py-2 text-xs text-neutral-500">Loading…</p>}
+        {tab === "items" && connected && isLoading && <p className="px-3 py-2 text-xs text-(--text-faint)">Loading…</p>}
         {tab === "items" && connected && error && (
-          <p className="px-3 py-2 text-xs text-red-400">{friendlyError(error)}</p>
+          <p className="px-3 py-2 text-xs text-(--danger)">{friendlyError(error)}</p>
         )}
 
         {tab === "items" && connected && !isLoading && !error && (
@@ -319,14 +319,14 @@ export function ObjectPanel() {
                     setMenuTable(t.name);
                     menu.open(e);
                   }}
-                  className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100"
+                  className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text)"
                 >
-                  <TableIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                  <TableIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
                   <span className="truncate">{t.name}</span>
                 </button>
               ))}
               {shownTables.length === 0 && (
-                <p className="px-2 py-1 pl-5 text-xs text-neutral-600">
+                <p className="px-2 py-1 pl-5 text-xs text-(--text-faint)">
                   {needle ? "No matches." : "No tables."}
                 </p>
               )}
@@ -338,11 +338,11 @@ export function ObjectPanel() {
                   <div
                     key={`${f.name}(${f.arguments})`}
                     title={`${f.name}(${f.arguments}) → ${f.returns}`}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-neutral-400"
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted)"
                   >
-                    <FunctionIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                    <FunctionIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
                     <span className="truncate">{f.name}</span>
-                    <span className="ml-auto shrink-0 text-[10px] text-neutral-600">
+                    <span className="ml-auto shrink-0 text-[10px] text-(--text-faint)">
                       {f.kind === "procedure" ? "proc" : "fn"}
                     </span>
                   </div>
@@ -360,9 +360,9 @@ export function ObjectPanel() {
                       setMenuTable(v.name);
                       menu.open(e);
                     }}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-neutral-400 transition-colors hover:bg-white/5 hover:text-neutral-100"
+                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text)"
                   >
-                    <ViewIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                    <ViewIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
                     <span className="truncate">{v.name}</span>
                   </button>
                 ))}
@@ -373,10 +373,10 @@ export function ObjectPanel() {
       </div>
 
       {tab === "items" && connected && (
-        <div className="shrink-0 space-y-1.5 border-t border-black/30 p-2">
+        <div className="shrink-0 space-y-1.5 border-t border-(--border) p-2">
           {schemas && schemas.length > 0 && (
             <label className="block">
-              <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-neutral-600">
+              <span className="mb-0.5 block text-[10px] uppercase tracking-wide text-(--text-faint)">
                 Schema
               </span>
               <Select
@@ -392,14 +392,14 @@ export function ObjectPanel() {
 
       <Dialog.Root open={dbPickerOpen} onOpenChange={setDbPickerOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-800 bg-neutral-900 p-4 shadow-xl shadow-black/40 focus:outline-none">
-            <Dialog.Title className="text-sm font-semibold text-neutral-100">Select Database</Dialog.Title>
+          <Dialog.Overlay className="fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-4 shadow-xl shadow-black/40 focus:outline-none">
+            <Dialog.Title className="text-sm font-semibold text-(--text)">Select Database</Dialog.Title>
 
             <div className="mt-3">
               <div className="relative">
                 <svg
-                  className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-500"
+                  className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-(--text-faint)"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -412,12 +412,12 @@ export function ObjectPanel() {
                   value={dbSearch}
                   onChange={(e) => setDbSearch(e.target.value)}
                   placeholder="Search for database…"
-                  className="w-full rounded-md border border-neutral-800 bg-neutral-950 py-1.5 pl-7 pr-6 text-xs text-neutral-200 outline-none transition-colors placeholder:text-neutral-600 focus:border-neutral-500"
+                  className="w-full rounded-md border border-(--border) bg-(--surface-sunken) py-1.5 pl-7 pr-6 text-xs text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--border-strong)"
                 />
                 {dbSearch && (
                   <button
                     onClick={() => setDbSearch("")}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-neutral-500 hover:text-neutral-200"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1 text-(--text-faint) hover:text-(--text-muted)"
                   >
                     ×
                   </button>
@@ -432,12 +432,12 @@ export function ObjectPanel() {
                   value={newDbName}
                   onChange={(e) => setNewDbName(e.target.value)}
                   placeholder="Database name"
-                  className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1.5 text-xs text-neutral-200 outline-none placeholder:text-neutral-600 focus:border-indigo-500"
+                  className="min-w-0 flex-1 rounded-md border border-(--border) bg-(--surface-sunken) px-2 py-1.5 text-xs text-(--text) outline-none placeholder:text-(--text-faint) focus:border-(--accent)"
                 />
                 <button
                   onClick={createDatabase}
                   disabled={dbAction === "create" || !newDbName.trim()}
-                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md bg-(--accent) px-3 py-1.5 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {dbAction === "create" ? "Creating…" : "Create"}
                 </button>
@@ -446,16 +446,16 @@ export function ObjectPanel() {
                     setShowNewDbForm(false);
                     setNewDbName("");
                   }}
-                  className="rounded-md px-2 py-1.5 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+                  className="rounded-md px-2 py-1.5 text-xs text-(--text-muted) transition-colors hover:text-(--text)"
                 >
                   Cancel
                 </button>
               </div>
             )}
 
-            <div className="mt-3 max-h-[240px] overflow-y-auto rounded-md border border-neutral-800 bg-neutral-950">
+            <div className="mt-3 max-h-[240px] overflow-y-auto rounded-md border border-(--border) bg-(--surface-sunken)">
               {shownDatabases.length === 0 && (
-                <p className="px-3 py-2 text-xs text-neutral-600">No databases found.</p>
+                <p className="px-3 py-2 text-xs text-(--text-faint)">No databases found.</p>
               )}
               {shownDatabases.map((db) => {
                 const active = db.name === info?.database;
@@ -466,14 +466,14 @@ export function ObjectPanel() {
                     className={clsx(
                       "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors",
                       selectedDb === db.name
-                        ? "bg-indigo-600/20 text-indigo-300"
-                        : "text-neutral-300 hover:bg-white/5",
+                        ? "bg-(--accent)/20 text-(--accent)"
+                        : "text-(--text-muted) hover:bg-(--hover)",
                     )}
                   >
-                    <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                    <DatabaseIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
                     <span className="truncate">{db.name}</span>
                     {active && (
-                      <span className="ml-auto shrink-0 rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-400">
+                      <span className="ml-auto shrink-0 rounded bg-(--active) px-1.5 py-0.5 text-[10px] text-(--text-muted)">
                         active
                       </span>
                     )}
@@ -483,7 +483,7 @@ export function ObjectPanel() {
             </div>
 
             {switchError && (
-              <p className="mt-2 rounded-md border border-red-900/50 bg-red-950/30 px-2 py-1.5 text-[11px] text-red-400">
+              <p className="mt-2 rounded-md border border-(--danger)/50 bg-(--danger)/10 px-2 py-1.5 text-[11px] text-(--danger)">
                 {switchError}
               </p>
             )}
@@ -496,7 +496,7 @@ export function ObjectPanel() {
                     dropDatabase(selectedDb);
                   }}
                   disabled={dbAction === "drop" || !selectedDb || selectedDb === info?.database || (databases?.length ?? 0) <= 1}
-                  className="rounded-md bg-red-700 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md bg-(--danger) px-3 py-1.5 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--danger)/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {dbAction === "drop" ? "Dropping…" : "Drop"}
                 </button>
@@ -504,7 +504,7 @@ export function ObjectPanel() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setDbPickerOpen(false)}
-                  className="rounded-md px-3 py-1.5 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+                  className="rounded-md px-3 py-1.5 text-xs text-(--text-muted) transition-colors hover:text-(--text)"
                 >
                   Cancel
                 </button>
@@ -514,7 +514,7 @@ export function ObjectPanel() {
                       setShowNewDbForm(true);
                       setNewDbName("");
                     }}
-                    className="rounded-md bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700"
+                    className="rounded-md bg-(--active) px-3 py-1.5 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover)"
                   >
                     New…
                   </button>
@@ -527,7 +527,7 @@ export function ObjectPanel() {
                     }
                   }}
                   disabled={!selectedDb || selectedDb === info?.database || switching}
-                  className="rounded-md bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md bg-(--accent) px-4 py-1.5 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {switching ? "Switching…" : "Open"}
                 </button>

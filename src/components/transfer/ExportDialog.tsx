@@ -63,7 +63,7 @@ function Check({
         onChange={(e) => onChange(e.target.checked)}
         className="accent-indigo-500"
       />
-      <span className="text-xs text-neutral-300">{label}</span>
+      <span className="text-xs text-(--text-muted)">{label}</span>
     </label>
   );
 }
@@ -71,7 +71,7 @@ function Check({
 function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-neutral-400">{label}</span>
+      <span className="text-xs text-(--text-muted)">{label}</span>
       <div className="w-40">{children}</div>
     </div>
   );
@@ -183,36 +183,36 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
   return (
     <Dialog.Root open onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 flex max-h-[85vh] w-[640px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-neutral-800 bg-neutral-900 shadow-xl shadow-black/40 focus:outline-none">
-          <Dialog.Title className="border-b border-neutral-800 px-5 py-3 text-sm font-semibold text-neutral-100">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 flex max-h-[85vh] w-[640px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-(--border) bg-(--surface-raised) shadow-xl shadow-black/40 focus:outline-none">
+          <Dialog.Title className="border-b border-(--border) px-5 py-3 text-sm font-semibold text-(--text)">
             {mode === "table" ? `Export table '${singleTable ?? ""}'` : "Export"}
           </Dialog.Title>
 
           <div className="flex min-h-0 flex-1">
             {/* Left: what to export */}
-            <div className="flex w-1/2 min-w-0 flex-col border-r border-neutral-800">
+            <div className="flex w-1/2 min-w-0 flex-col border-r border-(--border)">
               {mode === "all" ? (
                 <>
-                  <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-1.5">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                  <div className="flex items-center justify-between border-b border-(--border) px-3 py-1.5">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-(--text-faint)">
                       Items
                     </span>
                     <button
                       onClick={toggleAll}
-                      className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300"
+                      className="text-[11px] font-medium text-(--accent) hover:text-(--accent)"
                     >
                       {selected.size === allTables.length ? "None" : "All"}
                     </button>
                   </div>
                   <div className="min-h-0 flex-1 overflow-auto p-1">
                     {allTables.length === 0 && (
-                      <p className="px-2 py-3 text-xs text-neutral-600">No tables on this connection.</p>
+                      <p className="px-2 py-3 text-xs text-(--text-faint)">No tables on this connection.</p>
                     )}
                     {allTables.map((name) => (
                       <label
                         key={name}
-                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-white/5"
+                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-(--hover)"
                       >
                         <input
                           type="checkbox"
@@ -220,21 +220,21 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
                           onChange={() => toggle(name)}
                           className="accent-indigo-500"
                         />
-                        <TableIcon className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
-                        <span className="truncate text-xs text-neutral-200">{name}</span>
+                        <TableIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
+                        <span className="truncate text-xs text-(--text)">{name}</span>
                       </label>
                     ))}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="border-b border-neutral-800 px-3 py-1.5">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                  <div className="border-b border-(--border) px-3 py-1.5">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-(--text-faint)">
                       Select fields to export
                     </span>
                   </div>
                   <div className="min-h-0 flex-1 overflow-auto p-1">
-                    <p className="px-2 py-1 text-[11px] text-neutral-600">
+                    <p className="px-2 py-1 text-[11px] text-(--text-faint)">
                       {selectedColumns.size === 0
                         ? "All fields"
                         : `${selectedColumns.size} of ${columns?.length ?? 0} fields`}
@@ -242,7 +242,7 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
                     {(columns ?? []).map((c) => (
                       <label
                         key={c.name}
-                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-white/5"
+                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-(--hover)"
                       >
                         <input
                           type="checkbox"
@@ -250,8 +250,8 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
                           onChange={() => toggleColumn(c.name)}
                           className="accent-indigo-500"
                         />
-                        <span className="truncate text-xs text-neutral-200">{c.name}</span>
-                        <span className="ml-auto shrink-0 text-[10px] text-neutral-600">
+                        <span className="truncate text-xs text-(--text)">{c.name}</span>
+                        <span className="ml-auto shrink-0 text-[10px] text-(--text-faint)">
                           {c.dataType}
                         </span>
                       </label>
@@ -263,15 +263,15 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
 
             {/* Right: format and options */}
             <div className="flex w-1/2 min-w-0 flex-col">
-              <div className="flex gap-1 border-b border-neutral-800 px-3 py-2">
+              <div className="flex gap-1 border-b border-(--border) px-3 py-2">
                 {FORMATS.map((f) => (
                   <button
                     key={f}
                     onClick={() => setFormat(f)}
                     className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                       format === f
-                        ? "bg-indigo-600 text-white"
-                        : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200"
+                        ? "bg-(--accent) text-(--accent-text)"
+                        : "text-(--text-muted) hover:bg-(--hover) hover:text-(--text-muted)"
                     }`}
                   >
                     {FORMAT_LABEL[f]}
@@ -331,43 +331,43 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
                 )}
 
                 {format === "Json" && (
-                  <p className="text-xs leading-relaxed text-neutral-500">
+                  <p className="text-xs leading-relaxed text-(--text-faint)">
                     Each table is written as an array of objects keyed by column name. Numbers stay
                     numeric; decimals are kept as strings so no precision is lost.
                   </p>
                 )}
 
                 {format === "Sql" && (
-                  <p className="text-xs leading-relaxed text-neutral-500">
-                    Writes one <code className="text-neutral-400">INSERT</code> per row into a single
+                  <p className="text-xs leading-relaxed text-(--text-faint)">
+                    Writes one <code className="text-(--text-muted)">INSERT</code> per row into a single
                     .sql file, with identifiers quoted for this connection's dialect.
                   </p>
                 )}
               </div>
 
-              <div className="border-t border-neutral-800 px-4 py-2 text-xs text-neutral-500">
-                File name: <span className="text-neutral-300">{fileBase}</span>
+              <div className="border-t border-(--border) px-4 py-2 text-xs text-(--text-faint)">
+                File name: <span className="text-(--text)">{fileBase}</span>
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="mx-5 mb-2 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+            <div className="mx-5 mb-2 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2 text-xs text-(--danger)">
               {error}
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-neutral-800 px-5 py-3">
+          <div className="flex items-center justify-end gap-2 border-t border-(--border) px-5 py-3">
             <button
               onClick={onClose}
-              className="rounded-lg px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+              className="rounded-lg px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text)"
             >
               Cancel
             </button>
             <button
               onClick={handleExport}
               disabled={!canExport}
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Exporting…" : "Export…"}
             </button>

@@ -22,11 +22,11 @@ export function Select({ value, onChange, options, placeholder, size = "md" }: S
   return (
     <RadixSelect.Root value={value} onValueChange={onChange}>
       <RadixSelect.Trigger
-        className={`flex w-full items-center justify-between gap-1 border border-neutral-800 bg-neutral-950 text-neutral-100 outline-none transition-colors data-[placeholder]:text-neutral-600 hover:border-neutral-700 focus:border-indigo-500 ${trigger}`}
+        className={`flex w-full items-center justify-between gap-1 border border-(--border) bg-(--surface-sunken) text-(--text) outline-none transition-colors data-[placeholder]:text-(--text-faint) hover:border-(--border-strong) focus:border-(--accent) ${trigger}`}
       >
         <span className="truncate"><RadixSelect.Value placeholder={placeholder} /></span>
         <RadixSelect.Icon>
-          <svg className="h-3 w-3 shrink-0 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="h-3 w-3 shrink-0 text-(--text-faint)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15M8.25 9L12 5.25 15.75 9" />
           </svg>
         </RadixSelect.Icon>
@@ -35,14 +35,14 @@ export function Select({ value, onChange, options, placeholder, size = "md" }: S
         <RadixSelect.Content
           position="popper"
           sideOffset={4}
-          className="select-content z-[10001] max-h-[300px] overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900 text-xs shadow-xl shadow-black/50"
+          className="select-content z-[10001] max-h-[300px] overflow-y-auto rounded-lg border border-(--border) bg-(--surface-raised) text-xs shadow-xl shadow-black/50"
         >
           <RadixSelect.Viewport className="p-1">
             {options.map((opt) => (
               <RadixSelect.Item
                 key={opt.value}
                 value={opt.value}
-                className="relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-7 pr-3 text-neutral-200 outline-none transition-colors data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
+                className="relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-7 pr-3 text-(--text) outline-none transition-colors data-[highlighted]:bg-(--accent) data-[highlighted]:text-(--accent-text)"
               >
                 <RadixSelect.ItemIndicator className="absolute left-2 inline-flex items-center">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

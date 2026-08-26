@@ -24,7 +24,7 @@ export function StatusBar({ appVersion }: StatusBarProps) {
       : "No active connection";
 
   return (
-    <footer className="edge-highlight flex h-7 shrink-0 items-center justify-between border-t border-black/50 bg-[#111113] px-3 text-xs text-neutral-500">
+    <footer className="flex h-7 shrink-0 items-center justify-between border-t border-(--border-strong) bg-(--surface-sunken) px-3 text-xs text-(--text-faint)">
       <div className="flex items-center gap-2">
         {connection && (
           <span
