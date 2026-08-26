@@ -2,7 +2,9 @@
 
 A native macOS database client. *Tabili* is Yoruba for "table".
 
-![tabili](docs/readme-preview.png)
+<p align="center">
+  <img src="docs/readme-preview.png" width="480" alt="tabili">
+</p>
 
 Built with Tauri v2 (Rust) + React + TypeScript.
 
