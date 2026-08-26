@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import { format as formatSql } from "sql-formatter";
@@ -7,6 +7,7 @@ import { commands, type DbValue, type QueryHandle } from "../../bindings";
 import { friendlyError } from "../../lib/errors";
 import { useConsoleStore } from "../../stores/consoleStore";
 import { useConnectionsStore } from "../../stores/connectionsStore";
+import { useSqlEditorStore } from "../../stores/sqlEditorStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 
@@ -44,9 +45,10 @@ function displayValue(value: DbValue | undefined): string {
 
 interface SqlEditorProps {
   connectionId: string;
+  tabId: string;
 }
 
-export function SqlEditor({ connectionId }: SqlEditorProps) {
+export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
   const [sql, setSql] = useState("");
   const [running, setRunning] = useState(false);
   const [handle, setHandle] = useState<QueryHandle | null>(null);
@@ -65,6 +67,9 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
   const menu = useContextMenu();
   const log = useConsoleStore((s) => s.log);
   const themeMode = useThemeStore((s) => s.mode);
+  const register = useSqlEditorStore((s) => s.register);
+  const storeFindOpen = useSqlEditorStore((s) => s.findOpen);
+  const storeFontSize = useSqlEditorStore((s) => s.fontSize);
 
   const connections = useConnectionsStore((s) => s.connections);
   const dialect = connections.find((c) => c.id === connectionId)?.dialect ?? "Postgres";
@@ -74,6 +79,24 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
 
   const lineCount = useMemo(() => (sql ? sql.split("\n").length : 1), [sql]);
   const charCount = sql.length;
+
+  // Keep the menu bridge in sync with this editor's live state.
+  useEffect(() => {
+    register({
+      editor: editorRef.current,
+      tabId,
+      sql,
+      findOpen,
+      fontSize: storeFontSize,
+      runCurrent: () => void runCurrent(),
+      runAll: () => void runAll(),
+    });
+  }, [register, tabId, sql, findOpen, storeFontSize]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The menu can toggle the find bar; reflect that here.
+  useEffect(() => {
+    setFindOpen(storeFindOpen);
+  }, [storeFindOpen]);
 
   function onDragStart(e: React.PointerEvent) {
     dragRef.current = { startY: e.clientY, startHeight: editorHeight };
@@ -275,7 +298,11 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
           Save as JSON
         </button>
         <button
-          onClick={() => setFindOpen((o) => !o)}
+          onClick={() => {
+            const next = !findOpen;
+            setFindOpen(next);
+            useSqlEditorStore.getState().setFindOpen(next);
+          }}
           disabled={rows.length === 0}
           className="rounded-md bg-(--active) px-2.5 py-1 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover) disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -314,7 +341,7 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
             theme={themeMode === "light" ? "vs" : "vs-dark"}
             options={{
               minimap: { enabled: false },
-              fontSize: 12,
+              fontSize: storeFontSize,
               fontFamily: "'SF Mono', 'Menlo', monospace",
               scrollBeyondLastLine: false,
               automaticLayout: true,

@@ -3,12 +3,14 @@ import { listen } from "@tauri-apps/api/event";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { commands, type DbValue } from "../bindings";
 import { commitChanges } from "../lib/commitChanges";
+import { friendlyError } from "../lib/errors";
 import { useChangesStore } from "../stores/changesStore";
 import { useConsoleStore } from "../stores/consoleStore";
 import { useConnectionsStore } from "../stores/connectionsStore";
 import { useDetailsStore } from "../stores/detailsStore";
 import { useDialogsStore } from "../stores/dialogsStore";
 import { useLayoutStore } from "../stores/layoutStore";
+import { useSqlEditorStore } from "../stores/sqlEditorStore";
 import { useTabsStore } from "../stores/tabsStore";
 
 /** Prefix used by the dynamically-built File ▸ Open Recent entries. */
@@ -101,6 +103,39 @@ async function dispatch(action: string, queryClient: QueryClient) {
     case "file.close-tab":
       if (tabs.activeTabId) tabs.closeTab(tabs.activeTabId);
       return;
+    case "file.new-sql": {
+      if (!activeId) return;
+      tabs.openTab({
+        id: `${activeId}:sql:${crypto.randomUUID()}`,
+        connectionId: activeId,
+        title: "SQL",
+        kind: "query",
+        schema: null,
+      });
+      return;
+    }
+    case "file.save-as": {
+      // Save the active SQL editor's contents to a file.
+      const tab = tabs.tabs.find((t) => t.id === tabs.activeTabId);
+      if (!tab || tab.kind !== "query") return;
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const path = await save({
+        defaultPath: "query.sql",
+        filters: [{ name: "SQL", extensions: ["sql"] }],
+      });
+      if (!path) return;
+      const sql = useSqlEditorStore.getState().getSql(tab.id);
+      const res = await commands.saveSqlFile(path, sql);
+      if (res.status === "error") {
+        useConsoleStore.getState().log({
+          sql: "Save As",
+          success: false,
+          error: friendlyError(res.error.message),
+          durationMs: 0,
+        });
+      }
+      return;
+    }
 
     // --- Edit ---
     case "edit.commit":
@@ -112,6 +147,22 @@ async function dispatch(action: string, queryClient: QueryClient) {
     case "edit.preview":
       dialogs.open("preview-changes");
       return;
+    case "edit.find": {
+      useSqlEditorStore.getState().toggleFind();
+      return;
+    }
+    case "edit.toggle-line-comment": {
+      useSqlEditorStore.getState().toggleLineComment();
+      return;
+    }
+    case "edit.font-increase": {
+      useSqlEditorStore.getState().adjustFontSize(1);
+      return;
+    }
+    case "edit.font-decrease": {
+      useSqlEditorStore.getState().adjustFontSize(-1);
+      return;
+    }
     case "edit.add-row": {
       const tab = tabs.tabs.find((t) => t.id === tabs.activeTabId);
       if (!tab) return;
@@ -159,6 +210,15 @@ async function dispatch(action: string, queryClient: QueryClient) {
       return;
 
     // --- Connection ---
+    case "connection.open-database":
+      dialogs.open("db-picker");
+      return;
+    case "connection.run-query":
+      useSqlEditorStore.getState().runCurrent();
+      return;
+    case "connection.run-all":
+      useSqlEditorStore.getState().runAll();
+      return;
     case "connection.reload":
       if (activeId) reloadConnection(queryClient, activeId);
       return;

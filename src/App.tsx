@@ -28,7 +28,7 @@ function MainPane() {
   }
 
   if (activeTab.kind === "query") {
-    return <SqlEditor key={activeTab.id} connectionId={activeTab.connectionId} />;
+    return <SqlEditor key={activeTab.id} tabId={activeTab.id} connectionId={activeTab.connectionId} />;
   }
 
   return (

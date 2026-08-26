@@ -5,6 +5,7 @@ import { useDatabases, useFunctions, useSchemas, useTables, useViews } from "../
 import { commands } from "../../bindings";
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
+import { useDialogsStore } from "../../stores/dialogsStore";
 import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
@@ -57,6 +58,10 @@ export function ObjectPanel() {
   const openTab = useTabsStore((s) => s.openTab);
   const closeTabsFor = useTabsStore((s) => s.closeTabsForConnection);
   const queryClient = useQueryClient();
+  const dbPickerOpen = useDialogsStore((s) => s.dialog === "db-picker");
+  const setDbPickerOpen = useDialogsStore((s) => (open: boolean) =>
+    open ? s.open("db-picker") : s.close(),
+  );
 
   const [tab, setTab] = useState<PanelTab>("items");
   const [search, setSearch] = useState("");
@@ -77,7 +82,6 @@ export function ObjectPanel() {
   const [switchError, setSwitchError] = useState<string | null>(null);
 
   // Database picker dialog state
-  const [dbPickerOpen, setDbPickerOpen] = useState(false);
   const [dbSearch, setDbSearch] = useState("");
   const [selectedDb, setSelectedDb] = useState<string | null>(null);
   const [dbAction, setDbAction] = useState<"create" | "drop" | null>(null);

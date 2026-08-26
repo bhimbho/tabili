@@ -115,9 +115,9 @@ pub fn build_menu<R: Runtime>(
     let file_mid = build_items(
         app,
         &[
-            off("file.save-as", "Save As…", Some("Shift+CmdOrCtrl+S")),
+            on("file.save-as", "Save As…", Some("Shift+CmdOrCtrl+S")),
             off("file.new-workspace", "New Workspace", Some("CmdOrCtrl+N")),
-            off("file.new-sql", "New SQL Viewer", Some("Shift+CmdOrCtrl+O")),
+            on("file.new-sql", "New SQL Viewer", Some("Shift+CmdOrCtrl+O")),
         ],
     )?;
     let file_backup = build_items(
@@ -170,15 +170,15 @@ pub fn build_menu<R: Runtime>(
             on("edit.delete-row", "Delete Row", Some("CmdOrCtrl+Backspace")),
         ],
     )?;
-    // The grid filters rows from its own always-visible filter bar; a separate
-    // Find affordance doesn't exist yet, so it's shown greyed rather than fake.
-    let edit_find = build_items(app, &[off("edit.find", "Find…", Some("CmdOrCtrl+F"))])?;
+    // The grid filters rows from its own always-visible filter bar; Find
+    // targets the SQL editor's find-in-results bar.
+    let edit_find = build_items(app, &[on("edit.find", "Find…", Some("CmdOrCtrl+F"))])?;
     let edit_comments = build_items(
         app,
         &[
-            off("edit.toggle-line-comment", "Toggle Line Comment", Some("CmdOrCtrl+/")),
-            off("edit.font-increase", "Increase Font Size", Some("CmdOrCtrl+=")),
-            off("edit.font-decrease", "Decrease Font Size", Some("CmdOrCtrl+-")),
+            on("edit.toggle-line-comment", "Toggle Line Comment", Some("CmdOrCtrl+/")),
+            on("edit.font-increase", "Increase Font Size", Some("CmdOrCtrl+=")),
+            on("edit.font-decrease", "Decrease Font Size", Some("CmdOrCtrl+-")),
         ],
     )?;
 
@@ -244,15 +244,15 @@ pub fn build_menu<R: Runtime>(
     let conn_open = build_items(
         app,
         &[
-            off("connection.open-database", "Open a Database…", Some("CmdOrCtrl+K")),
+            on("connection.open-database", "Open a Database…", Some("CmdOrCtrl+K")),
             on("connection.open", "Open a Connection…", Some("Shift+CmdOrCtrl+K")),
         ],
     )?;
     let conn_run = build_items(
         app,
         &[
-            off("connection.run-query", "Run Current Query", Some("CmdOrCtrl+Enter")),
-            off("connection.run-all", "Run All Queries", Some("Shift+CmdOrCtrl+Enter")),
+            on("connection.run-query", "Run Current Query", Some("CmdOrCtrl+Enter")),
+            on("connection.run-all", "Run All Queries", Some("Shift+CmdOrCtrl+Enter")),
         ],
     )?;
     let conn_reload = build_items(

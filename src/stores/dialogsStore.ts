@@ -15,6 +15,7 @@ export type AppDialog =
   | "import-csv"
   | "import-sql"
   | "preview-changes"
+  | "db-picker"
   | null;
 
 interface DialogsState {
