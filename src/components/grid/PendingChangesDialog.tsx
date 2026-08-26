@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useChangesStore } from "../../stores/changesStore";
 import { commitChanges } from "../../lib/commitChanges";
 import { deleteSql, editSql, groupEdits, insertSql } from "../../lib/pendingSql";
+import { DialogCloseButton } from "../ui/DialogCloseButton";
 
 interface PendingChangesDialogProps {
   open: boolean;
@@ -45,6 +46,7 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
         <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 flex max-h-[70vh] w-[600px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-(--border) bg-(--surface-raised) shadow-xl shadow-black/40 focus:outline-none">
+          <DialogCloseButton onClose={() => onOpenChange(false)} />
           <div className="flex items-center justify-between border-b border-(--border) px-4 py-3">
             <Dialog.Title className="text-sm font-semibold text-(--text)">
               Pending Changes {total > 0 ? `(${total})` : ""}

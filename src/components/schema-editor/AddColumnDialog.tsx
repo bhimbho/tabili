@@ -3,6 +3,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { commands } from "../../bindings";
 import { Select } from "../ui/Select";
+import { DialogCloseButton } from "../ui/DialogCloseButton";
 
 interface AddColumnDialogProps {
   connectionId: string;
@@ -90,6 +91,7 @@ export function AddColumnDialog({ connectionId, table, schema, open, onOpenChang
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
         <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <DialogCloseButton onClose={() => handleOpenChange(false)} />
           <Dialog.Title className="text-base font-semibold text-(--text)">Add Column</Dialog.Title>
           <Dialog.Description className="mt-1 text-xs text-(--text-faint)">
             {table} · changes are previewed as SQL before anything runs.

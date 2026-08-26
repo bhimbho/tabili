@@ -8,6 +8,7 @@ import { useTabsStore } from "../../stores/tabsStore";
 import { useTables } from "../../hooks/useSchema";
 import { Select } from "../ui/Select";
 import { friendlyError } from "../../lib/errors";
+import { DialogCloseButton } from "../ui/DialogCloseButton";
 
 const DELIMITERS = [
   { value: ",", label: "," },
@@ -132,6 +133,7 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
         <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 max-h-[85vh] w-[520px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <DialogCloseButton onClose={onClose} />
           <Dialog.Title className="text-base font-semibold text-(--text)">
             {source === "csv" ? "Import from CSV" : "Import from SQL Dump"}
           </Dialog.Title>

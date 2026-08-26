@@ -14,7 +14,7 @@ import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
 import { ContextMenu, type MenuEntry, type MenuPosition } from "../ui/ContextMenu";
 import type { FkMap } from "../../stores/detailsStore";
 import { useThemeStore } from "../../stores/themeStore";
-import { DELETE_THEME, EDIT_THEME, gridThemeFor, INSERT_THEME } from "./gridTheme";
+import { editThemeFor, gridThemeFor } from "./gridTheme";
 
 export type { FkMap } from "../../stores/detailsStore";
 
@@ -134,6 +134,7 @@ export function DataGrid({
 
   const themeMode = useThemeStore((s) => s.mode);
   const gridTheme = gridThemeFor(themeMode);
+  const cellTints = editThemeFor(themeMode);
 
   const edits = useChangesStore((s) => s.edits);
   const inserts = useChangesStore((s) => s.inserts);
@@ -210,7 +211,7 @@ export function DataGrid({
           data: display,
           displayData: display,
           allowOverlay: true,
-          themeOverride: INSERT_THEME,
+          themeOverride: cellTints.INSERT,
         };
       }
 
@@ -234,11 +235,11 @@ export function DataGrid({
         data: display,
         displayData: display,
         allowOverlay: hasPk && !deleted && isEditableValue(value),
-        themeOverride: deleted ? DELETE_THEME : edit ? EDIT_THEME : undefined,
+        themeOverride: deleted ? cellTints.DELETE : edit ? cellTints.EDIT : undefined,
         cursor: isLinkable ? "pointer" : undefined,
       };
     },
-    [ordered, rows, insertRows, hasPk, extractPk, edits, deletes, connectionId, table, foreignKeys],
+    [ordered, rows, insertRows, hasPk, extractPk, edits, deletes, connectionId, table, foreignKeys, cellTints],
   );
 
   const onCellEdited = useCallback(

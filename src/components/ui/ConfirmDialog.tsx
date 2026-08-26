@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { DialogCloseButton } from "./DialogCloseButton";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ export function ConfirmDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
         <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <DialogCloseButton onClose={onCancel} />
           <Dialog.Title className="text-base font-semibold text-(--text)">{title}</Dialog.Title>
           <Dialog.Description className="mt-1.5 text-sm text-(--text-muted)">
             {description}

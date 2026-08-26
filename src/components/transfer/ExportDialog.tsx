@@ -8,6 +8,7 @@ import { useTables, useViews, useColumns } from "../../hooks/useSchema";
 import { Select } from "../ui/Select";
 import { friendlyError } from "../../lib/errors";
 import { TableIcon } from "../ui/icons";
+import { DialogCloseButton } from "../ui/DialogCloseButton";
 
 const FORMATS: ExportFormat[] = ["Csv", "Json", "Sql"];
 const FORMAT_LABEL: Record<ExportFormat, string> = { Csv: "CSV", Json: "JSON", Sql: "SQL" };
@@ -185,6 +186,7 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
         <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 flex max-h-[85vh] w-[640px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-(--border) bg-(--surface-raised) shadow-xl shadow-black/40 focus:outline-none">
+          <DialogCloseButton onClose={onClose} />
           <Dialog.Title className="border-b border-(--border) px-5 py-3 text-sm font-semibold text-(--text)">
             {mode === "table" ? `Export table '${singleTable ?? ""}'` : "Export"}
           </Dialog.Title>

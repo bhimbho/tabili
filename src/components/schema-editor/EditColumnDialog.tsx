@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { commands, type ColumnInfo } from "../../bindings";
 import { friendlyError } from "../../lib/errors";
 import { Select } from "../ui/Select";
+import { DialogCloseButton } from "../ui/DialogCloseButton";
 
 interface EditColumnDialogProps {
   connectionId: string;
@@ -99,6 +100,7 @@ export function EditColumnDialog({ connectionId, table, schema, column, onClose 
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
         <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <DialogCloseButton onClose={onClose} />
           <Dialog.Title className="text-base font-semibold text-(--text)">
             Edit Column: {columnName}
           </Dialog.Title>

@@ -99,3 +99,15 @@ export function gridThemeFor(mode: "dark" | "light"): Partial<Theme> {
 export const EDIT_THEME = { bgCell: "#3a2c0a", textDark: "#fcd34d" };
 export const DELETE_THEME = { bgCell: "#3a1414", textDark: "#fca5a5" };
 export const INSERT_THEME = { bgCell: "#0c2f1e", textDark: "#86efac" };
+
+/** Light-mode variants — same semantic meaning, readable on white cells. */
+export const EDIT_THEME_LIGHT = { bgCell: "#fef3c7", textDark: "#92400e" };
+export const DELETE_THEME_LIGHT = { bgCell: "#fee2e2", textDark: "#b91c1c" };
+export const INSERT_THEME_LIGHT = { bgCell: "#d1fae5", textDark: "#065f46" };
+
+/** Returns the correct staged-edit tint for the given app theme. */
+export function editThemeFor(mode: "dark" | "light") {
+  return mode === "light"
+    ? { EDIT: EDIT_THEME_LIGHT, DELETE: DELETE_THEME_LIGHT, INSERT: INSERT_THEME_LIGHT }
+    : { EDIT: EDIT_THEME, DELETE: DELETE_THEME, INSERT: INSERT_THEME };
+}

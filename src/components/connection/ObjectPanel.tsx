@@ -9,6 +9,7 @@ import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
 import { DragRegion } from "../ui/DragRegion";
+import { DialogCloseButton } from "../ui/DialogCloseButton";
 import { friendlyError } from "../../lib/errors";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronIcon, DatabaseIcon, FunctionIcon, TableIcon, ViewIcon } from "../ui/icons";
@@ -395,6 +396,7 @@ export function ObjectPanel() {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
           <Dialog.Content className="fixed left-1/2 top-1/2 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-4 shadow-xl shadow-black/40 focus:outline-none">
+            <DialogCloseButton onClose={() => setDbPickerOpen(false)} />
             <Dialog.Title className="text-sm font-semibold text-(--text)">Select Database</Dialog.Title>
 
             <div className="mt-3">
