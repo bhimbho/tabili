@@ -122,6 +122,28 @@ pub fn build_edit_column_ddl(
     Ok(vec![sql])
 }
 
+pub fn build_create_index_ddl(
+    schema: &str,
+    table: &str,
+    index_name: &str,
+    unique: bool,
+    columns: &[String],
+) -> String {
+    let cols: Vec<String> = columns.iter().map(|c| quote_ident(c)).collect();
+    format!(
+        "CREATE {}INDEX {} ON {} ({})",
+        if unique { "UNIQUE " } else { "" },
+        quote_ident(index_name),
+        quote_qualified(schema, table),
+        cols.join(", ")
+    )
+}
+
+pub fn build_drop_index_ddl(schema: &str, table: &str, index_name: &str) -> String {
+    // MySQL DROP INDEX needs the table name too.
+    format!("DROP INDEX {} ON {}", quote_ident(index_name), quote_qualified(schema, table))
+}
+
 pub async fn execute_ddl(pool: &MySqlPool, statements: &[String]) -> Result<(), DbError> {
     for statement in statements {
         sqlx::query(sqlx::AssertSqlSafe(statement.clone()))

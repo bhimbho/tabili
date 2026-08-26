@@ -364,6 +364,26 @@ impl DatabaseDriver for MySqlDriver {
             default.as_ref().map(|d| d.as_deref()),
         )
     }
+    async fn build_create_index_ddl(
+        &self,
+        table: &TableRef,
+        index_name: &str,
+        unique: bool,
+        columns: &[String],
+    ) -> Result<Vec<String>, DbError> {
+        let schema = self.resolve_schema(table.schema.as_deref())?;
+        Ok(vec![ddl::build_create_index_ddl(
+            schema,
+            &table.table,
+            index_name,
+            unique,
+            columns,
+        )])
+    }
+    async fn build_drop_index_ddl(&self, table: &TableRef, index_name: &str) -> Result<Vec<String>, DbError> {
+        let schema = self.resolve_schema(table.schema.as_deref())?;
+        Ok(vec![ddl::build_drop_index_ddl(schema, &table.table, index_name)])
+    }
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError> {
         ddl::execute_ddl(&self.pool, statements).await
     }

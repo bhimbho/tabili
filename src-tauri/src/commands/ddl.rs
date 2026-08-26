@@ -141,6 +141,45 @@ pub async fn preview_edit_column(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn preview_create_index(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+    index_name: String,
+    unique: bool,
+    columns: Vec<String>,
+) -> Result<Vec<String>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .build_create_index_ddl(
+            &TableRef { database: None, schema, table },
+            &index_name,
+            unique,
+            &columns,
+        )
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn preview_drop_index(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    table: String,
+    index_name: String,
+) -> Result<Vec<String>, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    driver
+        .build_drop_index_ddl(&TableRef { database: None, schema, table }, &index_name)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn execute_ddl(
     registry: State<'_, ConnectionRegistry>,
     app_store: State<'_, AppStore>,

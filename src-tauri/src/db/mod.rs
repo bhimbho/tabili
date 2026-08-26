@@ -95,6 +95,16 @@ pub trait DatabaseDriver: Send + Sync {
 
     // --- DDL: build (dry-run text) then execute separately; UI always previews first ---
     async fn build_create_table_ddl(&self, spec: &TableSpec) -> Result<Vec<String>, DbError>;
+    /// Builds a CREATE [UNIQUE] INDEX statement for a table.
+    async fn build_create_index_ddl(
+        &self,
+        table: &TableRef,
+        index_name: &str,
+        unique: bool,
+        columns: &[String],
+    ) -> Result<Vec<String>, DbError>;
+    /// Builds a DROP INDEX statement.
+    async fn build_drop_index_ddl(&self, table: &TableRef, index_name: &str) -> Result<Vec<String>, DbError>;
     async fn build_alter_table_ddl(
         &self,
         table: &TableRef,

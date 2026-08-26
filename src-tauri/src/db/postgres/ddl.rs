@@ -123,6 +123,27 @@ pub fn build_edit_column_ddl(
     Ok(statements)
 }
 
+pub fn build_create_index_ddl(
+    schema: &str,
+    table: &str,
+    index_name: &str,
+    unique: bool,
+    columns: &[String],
+) -> String {
+    let cols: Vec<String> = columns.iter().map(|c| quote_ident(c)).collect();
+    format!(
+        "CREATE {}INDEX {} ON {} ({})",
+        if unique { "UNIQUE " } else { "" },
+        quote_qualified(schema, index_name),
+        quote_qualified(schema, table),
+        cols.join(", ")
+    )
+}
+
+pub fn build_drop_index_ddl(schema: &str, index_name: &str) -> String {
+    format!("DROP INDEX {}", quote_qualified(schema, index_name))
+}
+
 pub async fn execute_ddl(pool: &PgPool, statements: &[String]) -> Result<(), DbError> {
     let mut tx = pool.begin().await.map_err(|e| DbError::Query(e.to_string()))?;
     for statement in statements {

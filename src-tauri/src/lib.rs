@@ -58,6 +58,8 @@ pub fn run() {
         commands::ddl::preview_drop_table,
         commands::ddl::preview_truncate_table,
         commands::ddl::preview_edit_column,
+        commands::ddl::preview_create_index,
+        commands::ddl::preview_drop_index,
         commands::ddl::execute_ddl,
         commands::console::server_info,
         commands::console::list_statement_log,

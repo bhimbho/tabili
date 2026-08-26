@@ -293,6 +293,23 @@ impl DatabaseDriver for SqliteDriver {
             "SQLite cannot alter a column's type or nullability; drop and re-add it instead".into(),
         ))
     }
+    async fn build_create_index_ddl(
+        &self,
+        table: &TableRef,
+        index_name: &str,
+        unique: bool,
+        columns: &[String],
+    ) -> Result<Vec<String>, DbError> {
+        Ok(vec![ddl::build_create_index_ddl(
+            &table.table,
+            index_name,
+            unique,
+            columns,
+        )])
+    }
+    async fn build_drop_index_ddl(&self, _table: &TableRef, index_name: &str) -> Result<Vec<String>, DbError> {
+        Ok(vec![format!("DROP INDEX {}", introspect::quote_ident(index_name))])
+    }
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError> {
         ddl::execute_ddl(&self.pool, statements).await
     }

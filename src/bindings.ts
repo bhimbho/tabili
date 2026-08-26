@@ -107,6 +107,8 @@ export const commands = {
 	 *  default, `Some(None)` to drop it, and `None` to leave it untouched.
 	 */
 	previewEditColumn: (connectionId: string, schema: string | null, table: string, column: string, newType: string | null, nullable: boolean | null, newDefault: string | null) => typedError<string[], AppError>(__TAURI_INVOKE("preview_edit_column", { connectionId, schema, table, column, newType, nullable, newDefault })),
+	previewCreateIndex: (connectionId: string, schema: string | null, table: string, indexName: string, unique: boolean, columns: string[]) => typedError<string[], AppError>(__TAURI_INVOKE("preview_create_index", { connectionId, schema, table, indexName, unique, columns })),
+	previewDropIndex: (connectionId: string, schema: string | null, table: string, indexName: string) => typedError<string[], AppError>(__TAURI_INVOKE("preview_drop_index", { connectionId, schema, table, indexName })),
 	executeDdl: (connectionId: string, statements: string[]) => typedError<null, AppError>(__TAURI_INVOKE("execute_ddl", { connectionId, statements })),
 	serverInfo: (connectionId: string) => typedError<ServerInfo, AppError>(__TAURI_INVOKE("server_info", { connectionId })),
 	listStatementLog: (limit: number) => typedError<StatementLogEntry[], AppError>(__TAURI_INVOKE("list_statement_log", { limit })),
