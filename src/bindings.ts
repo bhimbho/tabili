@@ -67,6 +67,7 @@ export const commands = {
 	 *  the `Option`. An f64 is exact well past any row count a table will reach.
 	 */
 	estimatedRowCount: (connectionId: string, schema: string | null, table: string) => typedError<number | null, AppError>(__TAURI_INVOKE("estimated_row_count", { connectionId, schema, table })),
+	getSchemaGraph: (connectionId: string, schema: string | null) => typedError<SchemaGraph, AppError>(__TAURI_INVOKE("get_schema_graph", { connectionId, schema })),
 	fetchRows: (connectionId: string, schema: string | null, table: string, limit: number, offset: number, orderBy: string | null, orderDesc: boolean, filters: ColumnFilter[]) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_rows", { connectionId, schema, table, limit, offset, orderBy, orderDesc, filters })),
 	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
 	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
@@ -376,6 +377,16 @@ export type SavedQuery = {
 	name: string,
 	sql: string,
 	createdAt: string,
+};
+
+/**
+ *  Everything the ERD viewer needs in one round-trip: every table (and view)
+ *  in the schema, its columns, and the foreign keys that connect them.
+ */
+export type SchemaGraph = {
+	tables: TableInfo[],
+	columns: ([string, ColumnInfo[]])[],
+	foreignKeys: ([string, ForeignKeyInfo[]])[],
 };
 
 export type SchemaInfo = {

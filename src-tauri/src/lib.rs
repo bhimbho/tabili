@@ -41,6 +41,7 @@ pub fn run() {
         commands::schema::get_triggers,
         commands::schema::get_table_ddl,
         commands::schema::estimated_row_count,
+        commands::schema::get_schema_graph,
         commands::rows::fetch_rows,
         commands::rows::insert_row,
         commands::rows::update_row,

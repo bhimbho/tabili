@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { TableView } from "./components/grid/TableView";
 import { SqlEditor } from "./components/connection/SqlEditor";
+import { ErdView } from "./components/schema-editor/ErdView";
 import { ExportDialog } from "./components/transfer/ExportDialog";
 import { ImportDialog } from "./components/transfer/ImportDialog";
 import { commands } from "./bindings";
@@ -29,6 +30,10 @@ function MainPane() {
 
   if (activeTab.kind === "query") {
     return <SqlEditor key={activeTab.id} tabId={activeTab.id} connectionId={activeTab.connectionId} />;
+  }
+
+  if (activeTab.kind === "erd") {
+    return <ErdView key={activeTab.id} connectionId={activeTab.connectionId} schema={activeTab.schema} />;
   }
 
   return (

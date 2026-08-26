@@ -172,3 +172,38 @@ pub async fn get_table_ddl(
         .await
         .map_err(AppError::from)
 }
+
+/// Everything the ERD viewer needs in one round-trip: every table (and view)
+/// in the schema, its columns, and the foreign keys that connect them.
+#[derive(serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaGraph {
+    pub tables: Vec<TableInfo>,
+    pub columns: Vec<(String, Vec<ColumnInfo>)>,
+    pub foreign_keys: Vec<(String, Vec<ForeignKeyInfo>)>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_schema_graph(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+) -> Result<SchemaGraph, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    let schema_ref = SchemaRef { database: None, schema: schema.clone() };
+
+    let tables = driver.list_tables(&schema_ref).await?;
+    let mut columns = Vec::with_capacity(tables.len());
+    let mut foreign_keys = Vec::with_capacity(tables.len());
+    for t in &tables {
+        let table_ref = TableRef {
+            database: None,
+            schema: schema.clone(),
+            table: t.name.clone(),
+        };
+        columns.push((t.name.clone(), driver.get_columns(&table_ref).await?));
+        foreign_keys.push((t.name.clone(), driver.get_foreign_keys(&table_ref).await?));
+    }
+    Ok(SchemaGraph { tables, columns, foreign_keys })
+}

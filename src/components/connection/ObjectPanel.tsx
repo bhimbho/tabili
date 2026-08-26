@@ -248,6 +248,22 @@ export function ObjectPanel() {
           SQL
         </button>
         <button
+          title="ERD diagram"
+          onClick={() => {
+            if (!connectionId) return;
+            openTab({
+              id: `${connectionId}:erd`,
+              connectionId,
+              title: "ERD",
+              kind: "erd",
+              schema: schema ?? null,
+            });
+          }}
+          className="flex flex-1 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
+        >
+          ERD
+        </button>
+        <button
           title="New table"
           onClick={() => setShowNewTable(true)}
           className="flex flex-1 items-center justify-center rounded-md px-2 py-1 text-xs font-semibold text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
