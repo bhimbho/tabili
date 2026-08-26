@@ -69,7 +69,7 @@ export function DateTimeField({
   const fieldBase =
     "selectable w-full rounded-md border bg-(--surface-sunken) px-2 py-1 text-xs text-(--text) outline-none transition-colors";
   const tone = dirty
-    ? "border-amber-700/60 text-amber-300"
+    ? "border-(--warn) text-(--warn)"
     : "border-(--border) text-(--text)";
 
   function commitText(next: string) {

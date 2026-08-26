@@ -36,7 +36,7 @@ export function StatusBar({ appVersion }: StatusBarProps) {
         )}
         <span>{status}</span>
         {pending > 0 && (
-          <span className="text-amber-500">
+          <span className="text-(--warn)">
             · {pending} unsaved change{pending === 1 ? "" : "s"} (⌘S to commit)
           </span>
         )}

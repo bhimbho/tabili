@@ -241,7 +241,7 @@ export function ImportDialog({ source, onClose }: ImportDialogProps) {
             </div>
           )}
           {done && (
-            <div className="mt-3 rounded-lg border border-emerald-900/50 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-300">
+            <div className="mt-3 rounded-lg border border-(--success) bg-(--success-soft) px-3 py-2 text-xs text-(--success)">
               {done}
             </div>
           )}

@@ -74,7 +74,7 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
             <td className="w-6 px-3 py-1.5">
               {col.isPrimaryKey && (
                 <span title="Primary key">
-                  <KeyIcon className="h-3 w-3 text-amber-500" />
+                  <KeyIcon className="h-3 w-3 text-(--warn)" />
                 </span>
               )}
             </td>

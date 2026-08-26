@@ -100,7 +100,7 @@ export function IndexesView({ connectionId, table, schema }: { connectionId: str
       />
 
       {dropError && (
-        <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+        <div className="mt-3 rounded-lg border border-(--danger) bg-(--danger-soft) px-3 py-2 text-xs text-(--danger)">
           {dropError}
         </div>
       )}

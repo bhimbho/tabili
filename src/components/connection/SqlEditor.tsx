@@ -419,7 +419,7 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
                         }}
                         className={clsx(
                           "whitespace-nowrap border-b border-(--grid-line) px-2 py-1",
-                          matches ? "bg-amber-500/20 text-amber-300" : "text-(--text-muted)",
+                          matches ? "bg-(--warn-soft) text-(--warn)" : "text-(--text-muted)",
                         )}
                       >
                         {text}

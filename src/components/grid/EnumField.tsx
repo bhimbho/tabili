@@ -42,7 +42,7 @@ export function EnumField({
         disabled={disabled}
         className={`selectable flex w-full items-center justify-between gap-1 rounded-md border px-2 py-1 text-left text-xs outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           dirty
-            ? "border-amber-700/60 bg-amber-950/20 text-amber-300"
+            ? "border-(--warn) bg-(--warn-soft) text-(--warn)"
             : "border-(--border) bg-(--surface-sunken) text-(--text)"
         } hover:border-(--border-strong) focus:border-(--accent)`}
       >

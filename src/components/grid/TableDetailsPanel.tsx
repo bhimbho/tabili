@@ -93,7 +93,7 @@ export function TableDetailsPanel({
             <ul className="space-y-0.5">
               {shownColumns.map((c) => (
                 <li key={c.name} className="flex items-baseline gap-1.5">
-                  {c.isPrimaryKey && <KeyIcon className="h-2.5 w-2.5 shrink-0 text-amber-500" />}
+                  {c.isPrimaryKey && <KeyIcon className="h-2.5 w-2.5 shrink-0 text-(--warn)" />}
                   <span className="selectable truncate text-xs text-(--text)">{c.name}</span>
                   {!c.nullable && <span className="text-[10px] text-(--text-faint)">not null</span>}
                   <span

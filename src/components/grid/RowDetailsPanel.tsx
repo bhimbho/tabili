@@ -178,7 +178,7 @@ export function RowDetailsPanel({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
             {!canEdit && edit && (
-              <p className="mb-2 rounded-md border border-amber-900/40 bg-amber-950/20 px-2 py-1 text-[11px] text-amber-500">
+              <p className="mb-2 rounded-md border border-(--warn) bg-(--warn-soft) px-2 py-1 text-[11px] text-(--warn)">
                 No primary key — this row can't be edited.
               </p>
             )}
@@ -198,9 +198,9 @@ export function RowDetailsPanel({
               return (
                 <div key={name} className="mb-3">
                   <div className="mb-1 flex items-baseline gap-1.5">
-                    {info?.isPrimaryKey && <KeyIcon className="h-2.5 w-2.5 text-amber-500" />}
+                    {info?.isPrimaryKey && <KeyIcon className="h-2.5 w-2.5 text-(--warn)" />}
                     <span className="text-xs font-medium text-(--text-muted)">{name}</span>
-                    {dirty && <span className="text-[10px] text-amber-500">edited</span>}
+                    {dirty && <span className="text-[10px] text-(--warn)">edited</span>}
                     <span className="ml-auto font-mono text-[10px] text-(--text-faint)">
                       {info?.dataType}
                     </span>
@@ -236,7 +236,7 @@ export function RowDetailsPanel({
                           onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                           className={`${fieldBase} ${
                             dirty
-                              ? "border-amber-700/60 text-amber-300"
+                              ? "border-(--warn) text-(--warn)"
                               : "border-(--border) text-(--text)"
                           }`}
                         />
@@ -262,7 +262,7 @@ export function RowDetailsPanel({
                         rows={5}
                         className={`${fieldBase} resize-y font-mono text-[11px] ${
                           dirty
-                            ? "border-amber-700/60 text-amber-300"
+                            ? "border-(--warn) text-(--warn)"
                             : "border-(--border) text-(--text-muted)"
                         }`}
                       />
@@ -280,7 +280,7 @@ export function RowDetailsPanel({
                       placeholder={value?.type === "Null" ? "NULL" : undefined}
                       className={`${fieldBase} ${
                         dirty
-                          ? "border-amber-700/60 text-amber-300"
+                          ? "border-(--warn) text-(--warn)"
                           : "border-(--border) text-(--text)"
                       } placeholder:italic placeholder:text-(--text-faint)`}
                     />

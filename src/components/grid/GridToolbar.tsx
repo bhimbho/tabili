@@ -50,7 +50,7 @@ export function GridToolbar({
           </span>
         )}
         {isData && !columnsError && !hasPk && (
-          <span className="text-xs text-amber-500">No primary key — read-only</span>
+          <span className="text-xs text-(--warn)">No primary key — read-only</span>
         )}
       </div>
 
