@@ -19,6 +19,11 @@ export function DragRegion({ className, style, children }: DragRegionProps) {
     const target = e.target as HTMLElement;
     if (target.closest("[data-no-drag]")) return;
     if (e.button !== 0) return;
+    // Prevent the WebView from starting a text selection on mousedown — when
+    // the window is already focused that selection drag swallows the gesture
+    // and startDragging() never takes over. Unfocusing the window first makes
+    // the same click "just work", which is why it only failed while focused.
+    e.preventDefault();
     getCurrentWindow().startDragging();
   }, []);
 
