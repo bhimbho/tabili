@@ -8,7 +8,6 @@ import { useTabsStore } from "../../stores/tabsStore";
 import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
-import { DragRegion } from "../ui/DragRegion";
 import { DialogCloseButton } from "../ui/DialogCloseButton";
 import { friendlyError } from "../../lib/errors";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -215,9 +214,7 @@ export function ObjectPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <DragRegion className="h-4 shrink-0" />
-
-      <div className="flex shrink-0 items-stretch gap-1 px-2 pb-1.5">
+      <div className="flex shrink-0 items-stretch gap-1 px-2 pt-1.5 pb-1.5">
         <button
           title="Select database"
           onClick={() => {
