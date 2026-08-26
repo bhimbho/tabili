@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import clsx from "clsx";
 import { useTabsStore } from "../../stores/tabsStore";
 import { useConnectionsStore } from "../../stores/connectionsStore";
+import { DragRegion } from "../ui/DragRegion";
 
 export function TabBar() {
   const { tabs, activeTabId, setActiveTab, closeTab } = useTabsStore();
@@ -22,15 +23,16 @@ export function TabBar() {
   }, [visible, activeTabId, setActiveTab]);
 
   if (visible.length === 0) {
-    return <div data-tauri-drag-region className="h-9 shrink-0 border-b border-(--border)" />;
+    return <DragRegion className="h-9 shrink-0 border-b border-(--border)" />;
   }
 
   return (
-    <div data-tauri-drag-region className="flex h-9 shrink-0 items-stretch border-b border-(--border)">
+    <DragRegion className="flex h-9 shrink-0 items-stretch border-b border-(--border)">
       {visible.map((tab) => (
         <button
           key={tab.id}
           onClick={() => setActiveTab(tab.id)}
+          data-no-drag
           className={clsx(
             "group flex items-center gap-2 border-r border-(--border) px-3 text-sm",
             tab.id === activeTabId
@@ -50,6 +52,6 @@ export function TabBar() {
           </span>
         </button>
       ))}
-    </div>
+    </DragRegion>
   );
 }

@@ -8,6 +8,7 @@ import { useTabsStore } from "../../stores/tabsStore";
 import { useServerInfo } from "../../hooks/useConnections";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { Select } from "../ui/Select";
+import { DragRegion } from "../ui/DragRegion";
 import { friendlyError } from "../../lib/errors";
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronIcon, DatabaseIcon, FunctionIcon, TableIcon, ViewIcon } from "../ui/icons";
@@ -213,7 +214,7 @@ export function ObjectPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <div data-tauri-drag-region className="h-9 shrink-0" />
+      <DragRegion className="h-9 shrink-0" />
 
       <div className="flex shrink-0 items-center gap-1 px-2 pb-1.5">
         <button

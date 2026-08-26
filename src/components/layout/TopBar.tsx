@@ -7,6 +7,7 @@ import { useLayoutStore } from "../../stores/layoutStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { useServerInfo } from "../../hooks/useConnections";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { DragRegion } from "../ui/DragRegion";
 import { MoonIcon, PanelIcon, PanelRightIcon, ReloadIcon, SunIcon } from "../ui/icons";
 
 /** Connections marked red are treated as production. */
@@ -77,8 +78,7 @@ export function TopBar() {
   ].filter(Boolean) as string[];
 
   return (
-    <header
-      data-tauri-drag-region
+    <DragRegion
       className="relative flex h-11 shrink-0 items-center gap-1.5 border-b px-3"
       style={{
         // Traffic lights overlay this bar's left edge when the sidebar is hidden.
@@ -91,6 +91,7 @@ export function TopBar() {
         onClick={toggleSidebar}
         title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
         className={iconButton}
+        data-no-drag
       >
         <PanelIcon className="h-4 w-4" />
       </button>
@@ -99,11 +100,12 @@ export function TopBar() {
         disabled={!connection?.isConnected}
         title="Reload connection"
         className={iconButton}
+        data-no-drag
       >
         <ReloadIcon className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
       </button>
 
-      <div data-tauri-drag-region className="flex min-w-0 flex-1 justify-center px-2">
+      <div className="flex min-w-0 flex-1 justify-center px-2">
         {connection ? (
           <div
             className="flex min-w-0 max-w-full items-center gap-2 rounded-lg bg-(--surface-sunken) px-3 py-1"
@@ -137,6 +139,7 @@ export function TopBar() {
         onClick={toggleDetails}
         title={detailsVisible ? "Hide details" : "Show details"}
         className={`${iconButton} ${detailsVisible ? "text-(--text)" : ""}`}
+        data-no-drag
       >
         <PanelRightIcon className="h-4 w-4" />
       </button>
@@ -144,6 +147,7 @@ export function TopBar() {
         onClick={toggleTheme}
         title={themeMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         className={iconButton}
+        data-no-drag
       >
         {themeMode === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
       </button>
@@ -170,6 +174,6 @@ export function TopBar() {
         }}
         onCancel={() => setConfirmReload(false)}
       />
-    </header>
+    </DragRegion>
   );
 }
