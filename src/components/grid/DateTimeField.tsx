@@ -67,10 +67,10 @@ export function DateTimeField({
   const isKeyword = !value || ["Null", "Default", "Now"].includes(value.type);
 
   const fieldBase =
-    "selectable w-full rounded-md border bg-neutral-950 px-2 py-1 text-xs outline-none transition-colors";
+    "selectable w-full rounded-md border bg-(--surface-sunken) px-2 py-1 text-xs text-(--text) outline-none transition-colors";
   const tone = dirty
     ? "border-amber-700/60 text-amber-300"
-    : "border-neutral-800 text-neutral-200";
+    : "border-(--border) text-(--text)";
 
   function commitText(next: string) {
     onChange(next === "" ? { type: "Null" } : { type: "DateTime", value: next });
@@ -101,7 +101,7 @@ export function DateTimeField({
             commitText(e.target.value);
           }}
           onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          className={`${fieldBase} ${tone} flex-1 placeholder:italic placeholder:text-neutral-600 focus:border-indigo-500`}
+          className={`${fieldBase} ${tone} flex-1 placeholder:italic placeholder:text-(--text-faint) focus:border-(--accent)`}
         />
       )}
 
@@ -109,7 +109,7 @@ export function DateTimeField({
         <DropdownMenu.Trigger
           disabled={disabled}
           title="Value options"
-          className="shrink-0 rounded-md border border-neutral-800 px-1.5 text-neutral-500 transition-colors hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-200 disabled:opacity-40"
+          className="shrink-0 rounded-md border border-(--border) px-1.5 text-(--text-muted) transition-colors hover:border-(--border-strong) hover:bg-(--hover) hover:text-(--text) disabled:opacity-40"
         >
           <svg
             viewBox="0 0 24 24"
@@ -128,12 +128,12 @@ export function DateTimeField({
           <DropdownMenu.Content
             align="end"
             sideOffset={4}
-            className="z-50 min-w-[150px] overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-xl shadow-black/50"
+            className="z-50 min-w-[150px] overflow-hidden rounded-lg border border-(--border-strong) bg-(--surface-raised) p-1 shadow-xl shadow-black/50"
           >
             {nullable && (
               <DropdownMenu.Item
                 onSelect={() => onChange({ type: "Null" })}
-                className="cursor-pointer rounded px-2 py-1 text-xs text-neutral-200 outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
+                className="cursor-pointer rounded px-2 py-1 text-xs text-(--text) outline-none data-[highlighted]:bg-(--accent) data-[highlighted]:text-(--accent-text)"
               >
                 NULL
               </DropdownMenu.Item>
@@ -141,32 +141,32 @@ export function DateTimeField({
             {hasDefault && (
               <DropdownMenu.Item
                 onSelect={() => onChange({ type: "Default" })}
-                className="cursor-pointer rounded px-2 py-1 text-xs text-neutral-200 outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
+                className="cursor-pointer rounded px-2 py-1 text-xs text-(--text) outline-none data-[highlighted]:bg-(--accent) data-[highlighted]:text-(--accent-text)"
               >
                 DEFAULT
               </DropdownMenu.Item>
             )}
             {(nullable || hasDefault) && (
-              <DropdownMenu.Separator className="my-1 h-px bg-neutral-800" />
+              <DropdownMenu.Separator className="my-1 h-px bg-(--border)" />
             )}
 
             <DropdownMenu.Item
               onSelect={() => onChange({ type: "Now" })}
-              className="cursor-pointer rounded px-2 py-1 text-xs text-neutral-200 outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
+              className="cursor-pointer rounded px-2 py-1 text-xs text-(--text) outline-none data-[highlighted]:bg-(--accent) data-[highlighted]:text-(--accent-text)"
             >
               NOW()
             </DropdownMenu.Item>
 
-            <DropdownMenu.Separator className="my-1 h-px bg-neutral-800" />
+            <DropdownMenu.Separator className="my-1 h-px bg-(--border)" />
             <DropdownMenu.Item
               onSelect={() => setPicking(true)}
-              className="cursor-pointer rounded px-2 py-1 text-xs text-neutral-200 outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
+              className="cursor-pointer rounded px-2 py-1 text-xs text-(--text) outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
             >
               {kind === "time" ? "Time Picker…" : "Date Picker…"}
             </DropdownMenu.Item>
             <DropdownMenu.Item
               onSelect={() => setPicking(false)}
-              className="cursor-pointer rounded px-2 py-1 text-xs text-neutral-200 outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
+              className="cursor-pointer rounded px-2 py-1 text-xs text-(--text) outline-none data-[highlighted]:bg-indigo-600 data-[highlighted]:text-white"
             >
               Manual input…
             </DropdownMenu.Item>

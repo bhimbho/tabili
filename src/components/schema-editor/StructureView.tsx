@@ -51,10 +51,10 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
   return (
     <Panel>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Columns</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-(--text-faint)">Columns</h3>
         <button
           onClick={() => onAddOpenChange(true)}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-(--active) hover:text-(--text)"
         >
           <PlusIcon className="h-3 w-3" />
           Add Column
@@ -65,7 +65,7 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
         {columns?.map((col) => (
           <tr
             key={col.name}
-            className="group text-neutral-300"
+            className="group text-(--text-muted)"
             onContextMenu={(e) => {
               setMenuColumn(col);
               menu.open(e);
@@ -79,16 +79,16 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
               )}
             </td>
             <td className="whitespace-nowrap px-3 py-1.5 font-medium">{col.name}</td>
-            <td className="whitespace-nowrap px-3 py-1.5 font-mono text-neutral-400">{col.dataType}</td>
-            <td className="px-3 py-1.5 text-neutral-500">{col.nullable ? "YES" : "NO"}</td>
-            <td className="max-w-[220px] truncate px-3 py-1.5 font-mono text-neutral-500">
+            <td className="whitespace-nowrap px-3 py-1.5 font-mono text-(--text-muted)">{col.dataType}</td>
+            <td className="px-3 py-1.5 text-(--text-faint)">{col.nullable ? "YES" : "NO"}</td>
+            <td className="max-w-[220px] truncate px-3 py-1.5 font-mono text-(--text-faint)">
               {col.defaultValue ?? "—"}
             </td>
             <td className="w-8 px-3 py-1.5 text-right">
               <button
                 onClick={() => setDropTarget(col.name)}
                 title="Drop column"
-                className="rounded px-1 text-neutral-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                className="rounded px-1 text-(--text-faint) opacity-0 transition-opacity hover:text-(--danger) group-hover:opacity-100"
               >
                 ×
               </button>
@@ -98,16 +98,16 @@ export function StructureView({ connectionId, table, schema, addOpen, onAddOpenC
       </DataTable>
 
       <div className="mt-6">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-(--text-faint)">
           Foreign Keys
         </h3>
         {foreignKeys && foreignKeys.length > 0 ? (
           <DataTable head={["Name", "Columns", "References"]}>
             {foreignKeys.map((fk) => (
-              <tr key={fk.name} className="text-neutral-300">
+              <tr key={fk.name} className="text-(--text-muted)">
                 <td className="whitespace-nowrap px-3 py-1.5 font-medium">{fk.name}</td>
-                <td className="px-3 py-1.5 font-mono text-neutral-400">{fk.columns.join(", ")}</td>
-                <td className="px-3 py-1.5 font-mono text-neutral-400">
+                <td className="px-3 py-1.5 font-mono text-(--text-muted)">{fk.columns.join(", ")}</td>
+                <td className="px-3 py-1.5 font-mono text-(--text-muted)">
                   {fk.referencedTable}({fk.referencedColumns.join(", ")})
                 </td>
               </tr>

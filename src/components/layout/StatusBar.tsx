@@ -46,8 +46,8 @@ export function StatusBar({ appVersion }: StatusBarProps) {
         <button
           onClick={toggle}
           title="Toggle console (⌘J)"
-          className={`rounded px-1.5 transition-colors hover:text-neutral-200 ${
-            consoleOpen ? "text-neutral-300" : ""
+          className={`rounded px-1.5 transition-colors hover:text-(--text) ${
+            consoleOpen ? "text-(--text)" : "text-(--text-faint)"
           }`}
         >
           Console

@@ -205,7 +205,7 @@ export function ObjectPanel() {
 
   if (!connection) {
     return (
-      <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-neutral-600">
+      <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-(--text-faint)">
         Select a connection on the left, or add one with +
       </div>
     );

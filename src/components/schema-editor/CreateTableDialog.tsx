@@ -33,7 +33,7 @@ interface ColumnDraft {
 }
 
 const inputClass =
-  "w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500";
+  "w-full rounded-lg border border-(--border) bg-(--surface-sunken) px-3 py-1.5 text-sm text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--accent)";
 
 export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: CreateTableDialogProps) {
   const queryClient = useQueryClient();
@@ -117,17 +117,17 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
-          <Dialog.Title className="text-base font-semibold text-neutral-100">New Table</Dialog.Title>
-          <Dialog.Description className="mt-1 text-xs text-neutral-500">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <Dialog.Title className="text-base font-semibold text-(--text)">New Table</Dialog.Title>
+          <Dialog.Description className="mt-1 text-xs text-(--text-faint)">
             {schema ?? "default schema"} · changes are previewed as SQL before anything runs.
           </Dialog.Description>
 
           {preview === null ? (
             <div className="mt-4 space-y-3">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-neutral-500">Table name</span>
+                <span className="mb-1 block text-xs font-medium text-(--text-faint)">Table name</span>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -138,10 +138,10 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
 
               <div>
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs font-medium text-neutral-500">Columns</span>
+                  <span className="text-xs font-medium text-(--text-faint)">Columns</span>
                   <button
                     onClick={addColumn}
-                    className="rounded-md bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700"
+                    className="rounded-md bg-(--active) px-2 py-0.5 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover)"
                   >
                     + Add column
                   </button>
@@ -161,7 +161,7 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
                         value={col.name}
                         onChange={(e) => updateColumn(idx, { name: e.target.value })}
                         placeholder="column"
-                        className="w-32 rounded-lg border border-neutral-800 bg-neutral-950 px-2 py-1.5 text-sm text-neutral-100 outline-none placeholder:text-neutral-600 focus:border-indigo-500"
+                        className="w-32 rounded-lg border border-(--border) bg-(--surface-sunken) px-2 py-1.5 text-sm text-(--text) outline-none placeholder:text-(--text-faint) focus:border-(--accent)"
                       />
                       <div className="w-32">
                         <Select
@@ -175,9 +175,9 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
                         value={col.defaultValue}
                         onChange={(e) => updateColumn(idx, { defaultValue: e.target.value })}
                         placeholder="default"
-                        className="min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-950 px-2 py-1.5 text-sm text-neutral-100 outline-none placeholder:text-neutral-600 focus:border-indigo-500"
+                        className="min-w-0 flex-1 rounded-lg border border-(--border) bg-(--surface-sunken) px-2 py-1.5 text-sm text-(--text) outline-none placeholder:text-(--text-faint) focus:border-(--accent)"
                       />
-                      <label className="flex shrink-0 items-center gap-1 text-xs text-neutral-400">
+                      <label className="flex shrink-0 items-center gap-1 text-xs text-(--text-muted)">
                         <input
                           type="checkbox"
                           checked={col.nullable}
@@ -189,7 +189,7 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
                       <button
                         onClick={() => removeColumn(idx)}
                         disabled={columns.length <= 1}
-                        className="shrink-0 rounded px-1.5 text-neutral-500 transition-colors hover:bg-red-900/30 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+                        className="shrink-0 rounded px-1.5 text-(--text-faint) transition-colors hover:bg-(--danger)/30 hover:text-(--danger) disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         ×
                       </button>
@@ -200,11 +200,11 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
             </div>
           ) : (
             <div className="mt-4 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">SQL to run</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-(--text-faint)">SQL to run</p>
               {preview.map((sql, i) => (
                 <pre
                   key={i}
-                  className="overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-xs text-neutral-300"
+                  className="overflow-x-auto rounded-md bg-(--surface-sunken) px-2 py-1.5 font-mono text-xs text-(--text-muted)"
                 >
                   {sql}
                 </pre>
@@ -213,7 +213,7 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
           )}
 
           {error && (
-            <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+            <div className="mt-3 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2 text-xs text-(--danger)">
               {error}
             </div>
           )}
@@ -221,14 +221,14 @@ export function CreateTableDialog({ connectionId, schema, open, onOpenChange }: 
           <div className="mt-5 flex items-center justify-between">
             <button
               onClick={() => (preview === null ? handleOpenChange(false) : setPreview(null))}
-              className="rounded-md px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+              className="rounded-md px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text)"
             >
               {preview === null ? "Cancel" : "Back"}
             </button>
             <button
               onClick={preview === null ? handlePreview : handleApply}
               disabled={busy || (preview === null && (!name.trim() || !columns.some((c) => c.name.trim())))}
-              className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Working…" : preview === null ? "Preview SQL" : "Create Table"}
             </button>

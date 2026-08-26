@@ -296,7 +296,7 @@ export function RowDetailsPanel({
                 </div>
               );
             })}
-            {shown.length === 0 && <p className="text-xs text-neutral-600">No matching fields.</p>}
+            {shown.length === 0 && <p className="text-xs text-(--text-faint)">No matching fields.</p>}
           </div>
         </>
       )}

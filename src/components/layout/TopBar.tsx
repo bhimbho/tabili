@@ -17,7 +17,7 @@ function isDanger(color?: string | null) {
 }
 
 const iconButton =
-  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent";
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text) disabled:opacity-30 disabled:hover:bg-transparent";
 
 export function TopBar() {
   const activeId = useConnectionsStore((s) => s.activeConnectionId);
@@ -106,7 +106,7 @@ export function TopBar() {
       <div data-tauri-drag-region className="flex min-w-0 flex-1 justify-center px-2">
         {connection ? (
           <div
-            className="flex min-w-0 max-w-full items-center gap-2 rounded-lg bg-black/25 px-3 py-1"
+            className="flex min-w-0 max-w-full items-center gap-2 rounded-lg bg-(--surface-sunken) px-3 py-1"
             style={{ boxShadow: danger ? "inset 0 0 0 1px rgba(239,68,68,0.45)" : undefined }}
           >
             <span
@@ -118,25 +118,25 @@ export function TopBar() {
             />
             <span
               className="shrink-0 text-xs font-semibold uppercase tracking-wide"
-              style={{ color: danger ? "#fca5a5" : "#e5e5e5" }}
+              style={{ color: danger ? "#f87171" : "var(--text)" }}
             >
               {connection.name}
             </span>
             {crumbs.length > 0 && (
-              <span className="truncate text-xs text-neutral-400">
-                <span className="text-neutral-600">|</span> {crumbs.join("  :  ")}
+              <span className="truncate text-xs text-(--text-muted)">
+                <span className="text-(--text-faint)">|</span> {crumbs.join("  :  ")}
               </span>
             )}
           </div>
         ) : (
-          <span className="text-xs text-neutral-600">No connection selected</span>
+          <span className="text-xs text-(--text-faint)">No connection selected</span>
         )}
       </div>
 
       <button
         onClick={toggleDetails}
         title={detailsVisible ? "Hide details" : "Show details"}
-        className={`${iconButton} ${detailsVisible ? "text-neutral-200" : ""}`}
+        className={`${iconButton} ${detailsVisible ? "text-(--text)" : ""}`}
       >
         <PanelRightIcon className="h-4 w-4" />
       </button>

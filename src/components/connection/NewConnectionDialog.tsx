@@ -381,7 +381,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder={isEditing ? "Unchanged" : undefined}
-                          className={`${inputClass} placeholder:italic placeholder:text-neutral-600`}
+                          className={`${inputClass} placeholder:italic placeholder:text-(--text-faint)`}
                         />
                       </Field>
                     </div>

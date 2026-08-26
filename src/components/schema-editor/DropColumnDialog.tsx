@@ -56,21 +56,21 @@ export function DropColumnDialog({ connectionId, table, schema, column, onClose 
   return (
     <Dialog.Root open={column !== null} onOpenChange={(next) => !next && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
-          <Dialog.Title className="text-base font-semibold text-neutral-100">Drop Column</Dialog.Title>
-          <Dialog.Description className="mt-1 text-xs text-neutral-500">
-            This permanently deletes <span className="font-medium text-neutral-300">{column}</span> and all its
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <Dialog.Title className="text-base font-semibold text-(--text)">Drop Column</Dialog.Title>
+          <Dialog.Description className="mt-1 text-xs text-(--text-faint)">
+            This permanently deletes <span className="font-medium text-(--text)">{column}</span> and all its
             data from {table}.
           </Dialog.Description>
 
           {preview && (
             <div className="mt-4 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">SQL to run</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-(--text-faint)">SQL to run</p>
               {preview.map((sql, i) => (
                 <pre
                   key={i}
-                  className="overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-xs text-neutral-300"
+                  className="overflow-x-auto rounded-md bg-(--surface-sunken) px-2 py-1.5 font-mono text-xs text-(--text-muted)"
                 >
                   {sql}
                 </pre>
@@ -79,7 +79,7 @@ export function DropColumnDialog({ connectionId, table, schema, column, onClose 
           )}
 
           {error && (
-            <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+            <div className="mt-3 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2 text-xs text-(--danger)">
               {error}
             </div>
           )}
@@ -87,14 +87,14 @@ export function DropColumnDialog({ connectionId, table, schema, column, onClose 
           <div className="mt-5 flex items-center justify-between">
             <button
               onClick={onClose}
-              className="rounded-md px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+              className="rounded-md px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text)"
             >
               Cancel
             </button>
             <button
               onClick={handleApply}
               disabled={busy || !preview}
-              className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-(--danger) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--danger)/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Dropping…" : "Drop Column"}
             </button>

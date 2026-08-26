@@ -557,7 +557,7 @@ export function DataGrid({
 
   if (columns.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-neutral-500">No rows.</div>
+      <div className="flex h-full items-center justify-center text-sm text-(--text-faint)">No rows.</div>
     );
   }
 

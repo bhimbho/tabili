@@ -21,8 +21,8 @@ function MainPane() {
   if (!activeTab) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
-        <p className="text-sm font-medium text-neutral-300">No table open</p>
-        <p className="text-sm text-neutral-600">Pick a connection in the sidebar, then a table to browse it.</p>
+        <p className="text-sm font-medium text-(--text-muted)">No table open</p>
+        <p className="text-sm text-(--text-faint)">Pick a connection in the sidebar, then a table to browse it.</p>
       </div>
     );
   }

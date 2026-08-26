@@ -57,7 +57,7 @@ export function Resizer({ width, onResize, min = 180, max = 640, side }: Resizer
       className="group relative w-1 shrink-0 cursor-col-resize bg-transparent"
       title="Drag to resize · double-click to reset"
     >
-      <div className="absolute inset-y-0 left-0 w-px bg-black/40 transition-colors group-hover:bg-indigo-500" />
+      <div className="absolute inset-y-0 left-0 w-px bg-(--border-strong) transition-colors group-hover:bg-indigo-500" />
     </div>
   );
 }

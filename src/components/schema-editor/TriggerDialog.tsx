@@ -49,10 +49,10 @@ export function TriggerDialog({ connectionId, table, schema, open, onOpenChange 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
-          <Dialog.Title className="text-base font-semibold text-neutral-100">Create Trigger</Dialog.Title>
-          <Dialog.Description className="mt-1 text-xs text-neutral-500">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
+          <Dialog.Title className="text-base font-semibold text-(--text)">Create Trigger</Dialog.Title>
+          <Dialog.Description className="mt-1 text-xs text-(--text-faint)">
             {table} · write the full CREATE TRIGGER statement for your dialect.
           </Dialog.Description>
 
@@ -62,14 +62,14 @@ export function TriggerDialog({ connectionId, table, schema, open, onOpenChange 
                 value={sql}
                 onChange={(e) => setSql(e.target.value)}
                 spellCheck={false}
-                className="h-56 w-full resize-none rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 font-mono text-xs leading-relaxed text-neutral-100 outline-none focus:border-indigo-500"
+                className="h-56 w-full resize-none rounded-lg border border-(--border) bg-(--surface-sunken) px-3 py-2 font-mono text-xs leading-relaxed text-(--text) outline-none focus:border-(--accent)"
               />
             </div>
           ) : (
             <div className="mt-4 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">SQL to run</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-(--text-faint)">SQL to run</p>
               {preview.map((stmt, i) => (
-                <pre key={i} className="overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 font-mono text-xs text-neutral-300">
+                <pre key={i} className="overflow-x-auto rounded-md bg-(--surface-sunken) px-2 py-1.5 font-mono text-xs text-(--text-muted)">
                   {stmt}
                 </pre>
               ))}
@@ -77,7 +77,7 @@ export function TriggerDialog({ connectionId, table, schema, open, onOpenChange 
           )}
 
           {error && (
-            <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+            <div className="mt-3 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2 text-xs text-(--danger)">
               {error}
             </div>
           )}
@@ -85,14 +85,14 @@ export function TriggerDialog({ connectionId, table, schema, open, onOpenChange 
           <div className="mt-5 flex items-center justify-between">
             <button
               onClick={() => (preview === null ? onOpenChange(false) : setPreview(null))}
-              className="rounded-md px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+              className="rounded-md px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text)"
             >
               {preview === null ? "Cancel" : "Back"}
             </button>
             <button
               onClick={preview === null ? handlePreview : handleApply}
               disabled={busy || (preview === null && !sql.trim())}
-              className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Working…" : preview === null ? "Preview SQL" : "Create Trigger"}
             </button>

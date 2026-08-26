@@ -47,10 +47,10 @@ export function IndexesView({ connectionId, table, schema }: { connectionId: str
   return (
     <Panel>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Indexes</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-(--text-faint)">Indexes</h3>
         <button
           onClick={() => setCreateOpen(true)}
-          className="rounded-md px-2 py-1 text-xs font-medium text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+          className="rounded-md px-2 py-1 text-xs font-medium text-(--text-muted) transition-colors hover:bg-(--active) hover:text-(--text)"
         >
           + New index
         </button>
@@ -59,15 +59,15 @@ export function IndexesView({ connectionId, table, schema }: { connectionId: str
       {indexes && indexes.length > 0 ? (
         <DataTable head={["Name", "Columns", "Unique", ""]}>
           {indexes.map((idx) => (
-            <tr key={idx.name} className="group text-neutral-300">
+            <tr key={idx.name} className="group text-(--text-muted)">
               <td className="whitespace-nowrap px-3 py-1.5 font-medium">{idx.name}</td>
-              <td className="px-3 py-1.5 font-mono text-neutral-400">{idx.columns.join(", ")}</td>
-              <td className="px-3 py-1.5 text-neutral-500">{idx.isUnique ? "YES" : "NO"}</td>
+              <td className="px-3 py-1.5 font-mono text-(--text-muted)">{idx.columns.join(", ")}</td>
+              <td className="px-3 py-1.5 text-(--text-faint)">{idx.isUnique ? "YES" : "NO"}</td>
               <td className="w-8 px-3 py-1.5 text-right">
                 <button
                   onClick={() => setDropTarget(idx.name)}
                   title="Drop index"
-                  className="rounded px-1 text-neutral-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                  className="rounded px-1 text-(--text-faint) opacity-0 transition-opacity hover:text-(--danger) group-hover:opacity-100"
                 >
                   ×
                 </button>

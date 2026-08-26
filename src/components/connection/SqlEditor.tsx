@@ -401,7 +401,7 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
                   }}
                   className={clsx(
                     "cursor-pointer transition-colors",
-                    i % 2 === 1 && "bg-white/[0.02]",
+                    i % 2 === 1 && "bg-(--hover)",
                     selectedRowIdx === i && "bg-indigo-600/15",
                   )}
                 >
@@ -419,7 +419,7 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
                         }}
                         className={clsx(
                           "whitespace-nowrap border-b border-(--grid-line) px-2 py-1",
-                          matches ? "bg-amber-500/20 text-amber-200" : "text-(--text-muted)",
+                          matches ? "bg-amber-500/20 text-amber-300" : "text-(--text-muted)",
                         )}
                       >
                         {text}

@@ -88,7 +88,7 @@ function RailItem({ connection }: { connection: SavedConnection }) {
         title={error ?? connection.name}
         className={clsx(
           "group relative flex w-full flex-col items-center gap-1 px-1 py-2 transition-colors",
-          isActive ? "bg-white/10" : "hover:bg-white/5",
+          isActive ? "bg-(--active)" : "hover:bg-(--hover)",
         )}
       >
         {/* Active marker rides the connection's accent so environments stay
@@ -115,7 +115,7 @@ function RailItem({ connection }: { connection: SavedConnection }) {
         <span
           className={clsx(
             "line-clamp-2 w-full break-all text-center text-[10px] leading-tight",
-            isActive ? "text-neutral-200" : "text-neutral-500",
+            isActive ? "text-(--text)" : "text-(--text-faint)",
           )}
         >
           {connection.name}
@@ -140,7 +140,7 @@ export function ConnectionRail({ onNewConnection }: ConnectionRailProps) {
       <button
         onClick={onNewConnection}
         title="New connection"
-        className="flex h-10 shrink-0 items-center justify-center border-t border-black/30 text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+        className="flex h-10 shrink-0 items-center justify-center border-t border-(--border-strong) text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text)"
       >
         <PlusIcon className="h-4 w-4" />
       </button>
