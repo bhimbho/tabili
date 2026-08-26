@@ -254,6 +254,11 @@ export type ExportTableSpec = {
 	table: string,
 	/**  `None` exports every column, in the table's own order. */
 	columns: string[] | null,
+	/**
+	 *  `false` writes only the table's DDL (CREATE TABLE + indexes) and no rows.
+	 *  Only meaningful for SQL exports; CSV/JSON always include data.
+	 */
+	includeData?: boolean,
 };
 
 export type FilterOperator = "Equals" | "NotEquals" | "Contains" | "StartsWith" | "EndsWith" | "GreaterThan" | "LessThan" | "GreaterOrEqual" | "LessOrEqual" | "IsNull" | "IsNotNull";

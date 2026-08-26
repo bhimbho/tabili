@@ -72,6 +72,14 @@ pub struct ExportTableSpec {
     pub table: String,
     /// `None` exports every column, in the table's own order.
     pub columns: Option<Vec<String>>,
+    /// `false` writes only the table's DDL (CREATE TABLE + indexes) and no rows.
+    /// Only meaningful for SQL exports; CSV/JSON always include data.
+    #[serde(default = "default_true")]
+    pub include_data: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -338,6 +346,16 @@ async fn write_sql(
 ) -> Result<i64, DbError> {
     let target = qualified(spec, dialect);
     writeln!(out, "-- {}", spec.table).map_err(io_err)?;
+
+    // Schema-only export: emit the CREATE TABLE (and indexes) and stop. The
+    // driver's DDL builder already produces a faithful, dialect-correct
+    // statement, so we reuse it rather than reconstructing it here.
+    if !spec.include_data {
+        let ddl = driver.get_table_ddl(&table_ref(spec)).await?;
+        writeln!(out, "{ddl}").map_err(io_err)?;
+        writeln!(out).map_err(io_err)?;
+        return Ok(0);
+    }
 
     let total = for_each_page(driver, spec, |columns, rows| {
         let column_list = columns

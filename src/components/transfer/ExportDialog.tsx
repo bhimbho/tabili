@@ -109,6 +109,7 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set());
   const [format, setFormat] = useState<ExportFormat>("Csv");
   const [csv, setCsv] = useState<CsvOptions>(defaultCsvOptions);
+  const [includeData, setIncludeData] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -166,6 +167,7 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
       table,
       columns:
         mode === "table" && selectedColumns.size > 0 ? [...selectedColumns] : null,
+      includeData,
     }));
 
     setBusy(true);
@@ -340,10 +342,38 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
                 )}
 
                 {format === "Sql" && (
-                  <p className="text-xs leading-relaxed text-(--text-faint)">
-                    Writes one <code className="text-(--text-muted)">INSERT</code> per row into a single
-                    .sql file, with identifiers quoted for this connection's dialect.
-                  </p>
+                  <>
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-(--text-faint)">
+                        Contents
+                      </span>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-(--hover)">
+                        <input
+                          type="radio"
+                          name="sql-contents"
+                          checked={includeData}
+                          onChange={() => setIncludeData(true)}
+                          className="accent-indigo-500"
+                        />
+                        <span className="text-xs text-(--text)">Schema and data</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-(--hover)">
+                        <input
+                          type="radio"
+                          name="sql-contents"
+                          checked={!includeData}
+                          onChange={() => setIncludeData(false)}
+                          className="accent-indigo-500"
+                        />
+                        <span className="text-xs text-(--text)">Schema only</span>
+                      </label>
+                    </div>
+                    <p className="text-xs leading-relaxed text-(--text-faint)">
+                      {includeData
+                        ? "Writes one INSERT per row into a single .sql file, with identifiers quoted for this connection's dialect."
+                        : "Writes only the CREATE TABLE (and index) statements — no rows."}
+                    </p>
+                  </>
                 )}
               </div>
 
