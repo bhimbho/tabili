@@ -215,9 +215,9 @@ export function ObjectPanel() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <DragRegion className="h-9 shrink-0" />
+      <DragRegion className="h-7 shrink-0" />
 
-      <div className="flex shrink-0 items-center gap-1 px-2 pb-1.5">
+      <div className="flex shrink-0 items-stretch gap-1 px-2 pb-1.5">
         <button
           title="Select database"
           onClick={() => {
@@ -227,7 +227,7 @@ export function ObjectPanel() {
             setSwitchError(null);
             setShowNewDbForm(false);
           }}
-          className="rounded-md p-1 text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
+          className="flex flex-1 items-center justify-center rounded-md p-1 text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
         >
           <DatabaseIcon className="h-4 w-4" />
         </button>
@@ -242,14 +242,14 @@ export function ObjectPanel() {
               schema: null,
             });
           }}
-          className="rounded-md px-2 py-1 text-xs font-medium text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
+          className="flex flex-1 items-center justify-center rounded-md px-2 py-1 text-xs font-medium text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
         >
           SQL
         </button>
         <button
           title="New table"
           onClick={() => setShowNewTable(true)}
-          className="ml-auto rounded-md px-2 py-1 text-xs font-medium text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
+          className="flex flex-1 items-center justify-center rounded-md px-2 py-1 text-xs font-medium text-(--text-faint) transition-colors hover:bg-(--hover) hover:text-(--text-muted)"
         >
           + Table
         </button>
