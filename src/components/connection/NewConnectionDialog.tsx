@@ -40,12 +40,12 @@ interface NewConnectionDialogProps {
 type Step = "pick" | "configure";
 
 const inputClass =
-  "w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 focus:border-indigo-500";
+  "w-full rounded-lg border border-(--border) bg-(--surface-sunken) px-3 py-1.5 text-sm text-(--text) outline-none transition-colors placeholder:text-(--text-faint) focus:border-(--accent)";
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 block text-xs font-medium text-neutral-500">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-(--text-faint)">{label}</span>
       {children}
     </label>
   );
@@ -59,8 +59,8 @@ function CertButton({ label, set, onPick }: { label: string; set: string; onPick
       title={set || undefined}
       className={`truncate rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors ${
         set
-          ? "border-indigo-800 bg-indigo-950/40 text-indigo-300 hover:bg-indigo-950/70"
-          : "border-neutral-800 bg-neutral-950 text-neutral-400 hover:bg-neutral-800"
+          ? "border-(--accent)/50 bg-(--accent)/15 text-(--accent) hover:bg-(--accent)/25"
+          : "border-(--border) bg-(--surface-sunken) text-(--text-muted) hover:bg-(--hover)"
       }`}
     >
       {set ? set.split("/").pop() : label}
@@ -276,12 +276,12 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 max-h-[85vh] w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-900 p-5 shadow-xl shadow-black/40 focus:outline-none">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 bg-(--bg)/50 backdrop-blur-[2px]" />
+        <Dialog.Content className="dialog-content fixed left-1/2 top-1/2 max-h-[85vh] w-[440px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-(--border) bg-(--surface-raised) p-5 shadow-xl shadow-black/40 focus:outline-none">
           {step === "pick" && (
             <>
-              <Dialog.Title className="text-base font-semibold text-neutral-100">New Connection</Dialog.Title>
-              <Dialog.Description className="mt-1 text-sm text-neutral-500">
+              <Dialog.Title className="text-base font-semibold text-(--text)">New Connection</Dialog.Title>
+              <Dialog.Description className="mt-1 text-sm text-(--text-faint)">
                 Choose a database to connect to.
               </Dialog.Description>
               <div className="mt-4 grid grid-cols-3 gap-2">
@@ -289,10 +289,10 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                   <button
                     key={meta.key}
                     onClick={() => selectDialect(meta)}
-                    className="flex flex-col items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950 p-4 transition-colors hover:border-neutral-700 hover:bg-neutral-800"
+                    className="flex flex-col items-center gap-2 rounded-lg border border-(--border) bg-(--surface-sunken) p-4 transition-colors hover:border-(--border-strong) hover:bg-(--hover)"
                   >
                     <DialectBadge dialect={meta.key} size="lg" />
-                    <span className="text-xs font-medium text-neutral-300">{meta.label}</span>
+                    <span className="text-xs font-medium text-(--text-muted)">{meta.label}</span>
                   </button>
                 ))}
               </div>
@@ -303,7 +303,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
             <>
               <div className="flex items-center gap-2">
                 <DialectBadge dialect={dialect} />
-                <Dialog.Title className="text-base font-semibold text-neutral-100">
+                <Dialog.Title className="text-base font-semibold text-(--text)">
                   {isEditing ? `Edit ${name || activeDialect?.label}` : activeDialect?.label}
                 </Dialog.Title>
               </div>
@@ -334,7 +334,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                     ))}
                   </div>
                   {color === "#ef4444" && (
-                    <p className="mt-1.5 text-[11px] text-red-400">
+                    <p className="mt-1.5 text-[11px] text-(--danger)">
                       Marked as production — the header turns red so destructive edits are obvious.
                     </p>
                   )}
@@ -347,11 +347,11 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                         value={filePath}
                         readOnly
                         placeholder="No file selected"
-                        className={`${inputClass} flex-1 text-neutral-400`}
+                        className={`${inputClass} flex-1 text-(--text-muted)`}
                       />
                       <button
                         onClick={pickFile}
-                        className="shrink-0 rounded-lg border border-neutral-700 px-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
+                        className="shrink-0 rounded-lg border border-(--border-strong) px-3 text-sm font-medium text-(--text) transition-colors hover:bg-(--hover)"
                       >
                         Choose…
                       </button>
@@ -403,23 +403,20 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                       </div>
                     </Field>
 
-                    <div className="border-t border-neutral-800 pt-3">
+                    <div className="border-t border-(--border) pt-3">
                       {/* A <label> wrapping a <button> forwards the click to it,
                           firing the handler twice; the row is a plain div. */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-neutral-300">Over SSH</span>
+                        <span className="text-xs font-medium text-(--text-muted)">Over SSH</span>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={sshEnabled}
                           onClick={() => setSshEnabled((v) => !v)}
                           className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-                            sshEnabled ? "bg-indigo-600" : "bg-neutral-700"
+                            sshEnabled ? "bg-(--accent)" : "bg-(--active)"
                           }`}
                         >
-                          {/* left-0.5 anchors the knob: without an explicit left it
-                              resolves against its static position, which a button
-                              centres, pushing it off the track when switched on. */}
                           <span
                             className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
                               sshEnabled ? "translate-x-4" : "translate-x-0"
@@ -465,7 +462,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                               </Field>
                             )}
                           </div>
-                          <p className="text-[11px] text-neutral-600">Stored in Keychain.</p>
+                          <p className="text-[11px] text-(--text-faint)">Stored in Keychain.</p>
 
                           <label className="flex items-center gap-2">
                             <input
@@ -474,7 +471,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                               onChange={(e) => setSshUseKey(e.target.checked)}
                               className="accent-indigo-500"
                             />
-                            <span className="text-xs text-neutral-400">Use SSH key</span>
+                            <span className="text-xs text-(--text-muted)">Use SSH key</span>
                           </label>
 
                           {sshUseKey && (
@@ -485,12 +482,12 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                                     value={sshPrivateKeyPath}
                                     readOnly
                                     placeholder="~/.ssh/id_ed25519"
-                                    className={`${inputClass} flex-1 text-neutral-400`}
+                                    className={`${inputClass} flex-1 text-(--text-muted)`}
                                   />
                                   <button
                                     type="button"
                                     onClick={pickPrivateKey}
-                                    className="shrink-0 rounded-lg border border-neutral-700 px-3 text-sm font-medium text-neutral-200 transition-colors hover:bg-neutral-800"
+                                    className="shrink-0 rounded-lg border border-(--border-strong) px-3 text-sm font-medium text-(--text) transition-colors hover:bg-(--hover)"
                                   >
                                     Choose…
                                   </button>
@@ -504,7 +501,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
                                   className={inputClass}
                                 />
                               </Field>
-                              <p className="text-[11px] text-neutral-600">
+                              <p className="text-[11px] text-(--text-faint)">
                                 Leave the private key empty to use one of ~/.ssh/id_ed25519, id_ecdsa or id_rsa.
                               </p>
                             </>
@@ -517,7 +514,7 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
               </div>
 
               {error && (
-                <div className="mt-3 rounded-lg border border-red-900/50 bg-red-950/50 px-3 py-2 text-xs text-red-300">
+                <div className="mt-3 rounded-lg border border-(--danger)/50 bg-(--danger)/10 px-3 py-2 text-xs text-(--danger)">
                   {error}
                 </div>
               )}
@@ -525,14 +522,14 @@ export function NewConnectionDialog({ open, onOpenChange, editing }: NewConnecti
               <div className="mt-5 flex items-center justify-between">
                 <button
                   onClick={() => (isEditing ? handleOpenChange(false) : setStep("pick"))}
-                  className="rounded-lg px-3 py-1.5 text-sm text-neutral-400 transition-colors hover:text-neutral-200"
+                  className="rounded-lg px-3 py-1.5 text-sm text-(--text-muted) transition-colors hover:text-(--text)"
                 >
                   {isEditing ? "Cancel" : "Back"}
                 </button>
                 <button
                   onClick={handleConnect}
                   disabled={!canConnect || connecting}
-                  className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-(--accent) px-4 py-1.5 text-sm font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {connecting
                     ? isEditing
