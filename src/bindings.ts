@@ -86,6 +86,12 @@ export const commands = {
 	 */
 	saveSqlFile: (path: string, contents: string) => typedError<null, AppError>(__TAURI_INVOKE("save_sql_file", { path, contents })),
 	/**
+	 *  Writes query-result rows to a file as CSV or JSON. The frontend already holds
+	 *  the materialised rows from `run_query`/`fetch_more`, so this just serialises
+	 *  them — no database round-trip needed.
+	 */
+	exportQueryResult: (path: string, columns: string[], rows: { [key in string]: DbValue }[], format: string) => typedError<null, AppError>(__TAURI_INVOKE("export_query_result", { path, columns, rows, format })),
+	/**
 	 *  Returns the SQL that *would* run, without touching the database. The UI shows
 	 *  this in a confirmation dialog; `execute_ddl` is a separate call so nothing
 	 *  destructive can happen without the user seeing the statements first.

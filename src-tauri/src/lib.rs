@@ -50,6 +50,7 @@ pub fn run() {
         commands::query::cancel_query,
         commands::query::split_sql,
         commands::query::save_sql_file,
+        commands::query::export_query_result,
         commands::ddl::preview_alter_table,
         commands::ddl::preview_add_column,
         commands::ddl::preview_drop_column,

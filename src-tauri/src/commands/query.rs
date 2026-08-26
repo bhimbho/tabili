@@ -105,3 +105,61 @@ pub fn save_sql_file(path: String, contents: String) -> Result<(), AppError> {
         AppError::from(DbError::Other(format!("failed to write file: {e}")))
     })
 }
+
+/// Writes query-result rows to a file as CSV or JSON. The frontend already holds
+/// the materialised rows from `run_query`/`fetch_more`, so this just serialises
+/// them — no database round-trip needed.
+#[tauri::command]
+#[specta::specta]
+pub fn export_query_result(
+    path: String,
+    columns: Vec<String>,
+    rows: Vec<std::collections::HashMap<String, crate::db::DbValue>>,
+    format: String,
+) -> Result<(), AppError> {
+    use crate::db::DbValue;
+
+    let content = if format == "json" {
+        serde_json::to_string_pretty(&rows)
+            .map_err(|e| DbError::Other(format!("failed to serialise rows: {e}")))?
+    } else {
+        let mut writer = csv::Writer::from_writer(Vec::new());
+        writer
+            .write_record(&columns)
+            .map_err(|e| DbError::Other(format!("failed to write csv: {e}")))?;
+        for row in &rows {
+            let record: Vec<String> = columns
+                .iter()
+                .map(|c| match row.get(c) {
+                    Some(DbValue::Null) => String::new(),
+                    Some(DbValue::Default) => "DEFAULT".to_string(),
+                    Some(DbValue::Now) => "CURRENT_TIMESTAMP".to_string(),
+                    Some(DbValue::Bool(b)) => b.to_string(),
+                    Some(DbValue::Int(i)) => i.to_string(),
+                    Some(DbValue::Float(f)) => f.to_string(),
+                    Some(DbValue::Decimal(s)) => s.clone(),
+                    Some(DbValue::Text(s))
+                    | Some(DbValue::DateTime(s))
+                    | Some(DbValue::Uuid(s))
+                    | Some(DbValue::Bytes(s)) => s.clone(),
+                    Some(DbValue::Json(v)) => v.to_string(),
+                    Some(DbValue::Array(items)) => {
+                        serde_json::to_string(items).unwrap_or_else(|_| "[]".to_string())
+                    }
+                    Some(DbValue::Unsupported { raw, .. }) => raw.clone(),
+                    None => String::new(),
+                })
+                .collect();
+            writer
+                .write_record(&record)
+                .map_err(|e| DbError::Other(format!("failed to write csv: {e}")))?;
+        }
+        let bytes = writer
+            .into_inner()
+            .map_err(|e| DbError::Other(format!("failed to finalise csv: {e}")))?;
+        String::from_utf8(bytes).map_err(|e| DbError::Other(e.to_string()))?
+    };
+    std::fs::write(&path, content).map_err(|e| {
+        AppError::from(DbError::Other(format!("failed to write file: {e}")))
+    })
+}

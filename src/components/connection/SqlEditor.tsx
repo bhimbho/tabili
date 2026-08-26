@@ -7,6 +7,7 @@ import { commands, type DbValue, type QueryHandle } from "../../bindings";
 import { friendlyError } from "../../lib/errors";
 import { useConsoleStore } from "../../stores/consoleStore";
 import { useConnectionsStore } from "../../stores/connectionsStore";
+import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 
 function displayValue(value: DbValue | undefined): string {
   if (!value) return "";
@@ -56,8 +57,11 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
   const [editorHeight, setEditorHeight] = useState(220);
   const [find, setFind] = useState("");
   const [findOpen, setFindOpen] = useState(false);
+  const [menuCell, setMenuCell] = useState<{ row: Record<string, DbValue>; column: string } | null>(null);
+  const [selectedRowIdx, setSelectedRowIdx] = useState<number | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const menu = useContextMenu();
   const log = useConsoleStore((s) => s.log);
 
   const connections = useConnectionsStore((s) => s.connections);
@@ -190,6 +194,52 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
     }
   }
 
+  const cellMenuItems: MenuEntry[] = [
+    {
+      label: "Copy cell value",
+      onSelect: () => {
+        if (menuCell) navigator.clipboard.writeText(displayValue(menuCell.row[menuCell.column]));
+      },
+    },
+    {
+      label: "Copy column value",
+      onSelect: () => {
+        if (menuCell) {
+          navigator.clipboard.writeText(displayValue(menuCell.row[menuCell.column]));
+        }
+      },
+    },
+    {
+      label: "Copy row (JSON)",
+      onSelect: () => {
+        if (menuCell) navigator.clipboard.writeText(JSON.stringify(menuCell.row, null, 2));
+      },
+    },
+    null,
+    {
+      label: "Details…",
+      onSelect: () => {
+        if (menuCell) {
+          const idx = rows.findIndex((r) => r === menuCell.row);
+          setSelectedRowIdx(idx >= 0 ? idx : null);
+        }
+      },
+    },
+  ];
+
+  async function exportResult(format: "csv" | "json") {
+    if (rows.length === 0) return;
+    const path = await saveFileDialog({
+      defaultPath: `query-result.${format}`,
+      filters: [{ name: format.toUpperCase(), extensions: [format] }],
+    });
+    if (!path) return;
+    const res = await commands.exportQueryResult(path, columns, rows, format);
+    if (res.status === "error") {
+      setError(friendlyError(res.error.message));
+    }
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Toolbar */}
@@ -228,6 +278,20 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
           className="rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Find
+        </button>
+        <button
+          onClick={() => void exportResult("csv")}
+          disabled={rows.length === 0}
+          className="rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Export CSV
+        </button>
+        <button
+          onClick={() => void exportResult("json")}
+          disabled={rows.length === 0}
+          className="rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Export JSON
         </button>
         {rows.length > 0 && (
           <span className="ml-auto text-[11px] text-neutral-500">
@@ -325,13 +389,32 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className={clsx(i % 2 === 1 && "bg-white/[0.02]")}>
+                <tr
+                  key={i}
+                  onClick={() => setSelectedRowIdx(selectedRowIdx === i ? null : i)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenuCell({ row, column: columns[0] });
+                    menu.open(e);
+                  }}
+                  className={clsx(
+                    "cursor-pointer transition-colors",
+                    i % 2 === 1 && "bg-white/[0.02]",
+                    selectedRowIdx === i && "bg-indigo-600/15",
+                  )}
+                >
                   {columns.map((c) => {
                     const text = displayValue(row[c]);
                     const matches = find.trim() && text.toLowerCase().includes(find.trim().toLowerCase());
                     return (
                       <td
                         key={c}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setMenuCell({ row, column: c });
+                          menu.open(e);
+                        }}
                         className={clsx(
                           "whitespace-nowrap border-b border-black/20 px-2 py-1",
                           matches ? "bg-amber-500/20 text-amber-200" : "text-neutral-300",
@@ -356,7 +439,47 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
             </button>
           </div>
         )}
+
+        {/* Row details */}
+        {selectedRowIdx !== null && rows[selectedRowIdx] && (
+          <div className="shrink-0 border-t border-black/30 bg-black/20 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-neutral-300">Row {selectedRowIdx + 1}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() =>
+                    navigator.clipboard.writeText(JSON.stringify(rows[selectedRowIdx], null, 2))
+                  }
+                  className="rounded px-1.5 py-0.5 text-[11px] text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-100"
+                >
+                  Copy JSON
+                </button>
+                <button
+                  onClick={() => setSelectedRowIdx(null)}
+                  className="rounded px-1.5 text-xs text-neutral-500 transition-colors hover:text-neutral-200"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="grid max-h-40 grid-cols-2 gap-x-3 overflow-y-auto">
+              {columns.map((c) => (
+                <div key={c} className="flex items-baseline gap-2 border-b border-white/5 py-1">
+                  <span className="shrink-0 font-mono text-[10px] text-neutral-500">{c}</span>
+                  <span
+                    className="selectable min-w-0 truncate text-xs text-neutral-200"
+                    title={displayValue(rows[selectedRowIdx][c])}
+                  >
+                    {displayValue(rows[selectedRowIdx][c])}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      <ContextMenu position={menu.position} items={cellMenuItems} onClose={menu.close} />
     </div>
   );
 }
