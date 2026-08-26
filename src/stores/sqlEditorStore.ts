@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { DbValue } from "../bindings";
 
 /**
  * Bridges native-menu actions to the active SQL editor. The editor registers
@@ -16,6 +17,10 @@ interface SqlEditorStore {
   findOpen: boolean;
   /** The editor's font size (px). */
   fontSize: number;
+  /** Query result columns, for menu export. */
+  columns: string[];
+  /** Query result rows, for menu export. */
+  rows: Record<string, DbValue>[];
   /** Callbacks the editor wires up so menu actions can trigger them. */
   runCurrent: () => void;
   runAll: () => void;
@@ -26,12 +31,16 @@ interface SqlEditorStore {
     sql: string;
     findOpen: boolean;
     fontSize: number;
+    columns: string[];
+    rows: Record<string, DbValue>[];
     runCurrent: () => void;
     runAll: () => void;
   }) => void;
   setSql: (sql: string) => void;
   setFindOpen: (open: boolean) => void;
   setFontSize: (size: number) => void;
+  setColumns: (columns: string[]) => void;
+  setRows: (rows: Record<string, DbValue>[]) => void;
   getSql: (tabId: string) => string;
   toggleFind: () => void;
   toggleLineComment: () => void;
@@ -44,6 +53,8 @@ export const useSqlEditorStore = create<SqlEditorStore>((set, get) => ({
   sql: "",
   findOpen: false,
   fontSize: 12,
+  columns: [],
+  rows: [],
   runCurrent: () => {},
   runAll: () => {},
 
@@ -54,6 +65,8 @@ export const useSqlEditorStore = create<SqlEditorStore>((set, get) => ({
       sql: api.sql,
       findOpen: api.findOpen,
       fontSize: api.fontSize,
+      columns: api.columns,
+      rows: api.rows,
       runCurrent: api.runCurrent,
       runAll: api.runAll,
     }),
@@ -61,6 +74,8 @@ export const useSqlEditorStore = create<SqlEditorStore>((set, get) => ({
   setSql: (sql) => set({ sql }),
   setFindOpen: (open) => set({ findOpen: open }),
   setFontSize: (size) => set({ fontSize: size }),
+  setColumns: (columns) => set({ columns }),
+  setRows: (rows) => set({ rows }),
 
   getSql: (tabId) => (get().tabId === tabId ? get().sql : ""),
 

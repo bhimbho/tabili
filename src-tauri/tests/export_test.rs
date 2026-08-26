@@ -30,7 +30,14 @@ fn out_dir() -> std::path::PathBuf {
 }
 
 fn spec(table: &str, columns: Option<Vec<String>>) -> ExportTableSpec {
-    ExportTableSpec { schema: None, table: table.to_string(), columns }
+    ExportTableSpec {
+        schema: None,
+        table: table.to_string(),
+        columns,
+        include_structure: false,
+        include_drop: false,
+        include_data: true,
+    }
 }
 
 #[tokio::test]
@@ -46,6 +53,7 @@ async fn exports_csv_with_header_and_all_rows() {
         ExportFormat::Csv,
         &CsvOptions::default(),
         path.to_str().unwrap(),
+        false,
     )
     .await
     .expect("export csv");
@@ -72,6 +80,7 @@ async fn csv_column_subset_limits_columns() {
         ExportFormat::Csv,
         &CsvOptions::default(),
         path.to_str().unwrap(),
+        false,
     )
     .await
     .expect("export csv subset");
@@ -94,6 +103,7 @@ async fn exports_json_as_a_parseable_array() {
         ExportFormat::Json,
         &CsvOptions::default(),
         path.to_str().unwrap(),
+        false,
     )
     .await
     .expect("export json");
@@ -118,6 +128,7 @@ async fn exports_sql_inserts_that_round_trip() {
         ExportFormat::Sql,
         &CsvOptions::default(),
         path.to_str().unwrap(),
+        false,
     )
     .await
     .expect("export sql");
@@ -146,6 +157,7 @@ async fn multiple_tables_write_one_file_each() {
         ExportFormat::Csv,
         &CsvOptions::default(),
         dir.to_str().unwrap(),
+        false,
     )
     .await
     .expect("export multi");
@@ -175,6 +187,7 @@ async fn csv_round_trips_through_import() {
         ExportFormat::Csv,
         &CsvOptions::default(),
         csv_path.to_str().unwrap(),
+        false,
     )
     .await
     .expect("export");

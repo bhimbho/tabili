@@ -292,7 +292,7 @@ pub fn build_menu<R: Runtime>(
         app,
         &[
             on("tools.erd", "ERD Diagram", Some("CmdOrCtrl+E")),
-            off("tools.user-management", "User Management…", None),
+            on("tools.user-management", "User Management…", None),
             off("tools.process-list", "Process List…", None),
             off("tools.search-database", "Search in Database…", Some("Shift+CmdOrCtrl+F")),
         ],

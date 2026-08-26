@@ -282,3 +282,24 @@ pub struct TableSpec {
     pub columns: Vec<ColumnSpec>,
     pub primary_key: Vec<String>,
 }
+
+// --- User management ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DbUser {
+    pub name: String,
+    pub host: Option<String>,
+    pub superuser: bool,
+    pub can_create_db: bool,
+    pub can_create_role: bool,
+    pub can_login: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DbGrant {
+    pub privilege: String,
+    pub schema: Option<String>,
+    pub table: Option<String>,
+}

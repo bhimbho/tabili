@@ -5,6 +5,7 @@ pub mod query;
 pub mod rows;
 pub mod schema;
 pub mod transfer;
+pub mod users;
 
 use serde::Serialize;
 use specta::Type;

@@ -12,7 +12,7 @@ use crate::db::{
     filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
     DbError, DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle,
     RowPage, SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
-    TriggerInfo, ServerInfo, FunctionInfo,
+    TriggerInfo, ServerInfo, FunctionInfo, DbUser, DbGrant,
 };
 use introspect::quote_ident;
 
@@ -312,5 +312,63 @@ impl DatabaseDriver for SqliteDriver {
     }
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError> {
         ddl::execute_ddl(&self.pool, statements).await
+    }
+
+    // --- user management (not supported for SQLite) ---
+    async fn list_users(&self) -> Result<Vec<DbUser>, DbError> {
+        Ok(vec![])
+    }
+    async fn create_user(
+        &self,
+        _name: &str,
+        _password: &str,
+        _host: Option<&str>,
+        _superuser: bool,
+    ) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite does not support user management".into(),
+        ))
+    }
+    async fn drop_user(&self, _name: &str, _host: Option<&str>) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite does not support user management".into(),
+        ))
+    }
+    async fn alter_user_password(
+        &self,
+        _name: &str,
+        _host: Option<&str>,
+        _new_password: &str,
+    ) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite does not support user management".into(),
+        ))
+    }
+    async fn user_grants(&self, _name: &str, _host: Option<&str>) -> Result<Vec<DbGrant>, DbError> {
+        Ok(vec![])
+    }
+    async fn grant_privilege(
+        &self,
+        _name: &str,
+        _host: Option<&str>,
+        _privilege: &str,
+        _schema: Option<&str>,
+        _table: Option<&str>,
+    ) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite does not support user management".into(),
+        ))
+    }
+    async fn revoke_privilege(
+        &self,
+        _name: &str,
+        _host: Option<&str>,
+        _privilege: &str,
+        _schema: Option<&str>,
+        _table: Option<&str>,
+    ) -> Result<(), DbError> {
+        Err(DbError::Unsupported(
+            "SQLite does not support user management".into(),
+        ))
     }
 }

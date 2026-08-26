@@ -87,11 +87,11 @@ export const commands = {
 	 */
 	saveSqlFile: (path: string, contents: string) => typedError<null, AppError>(__TAURI_INVOKE("save_sql_file", { path, contents })),
 	/**
-	 *  Writes query-result rows to a file as CSV or JSON. The frontend already holds
-	 *  the materialised rows from `run_query`/`fetch_more`, so this just serialises
-	 *  them — no database round-trip needed.
+	 *  Writes query-result rows to a file as CSV, JSON, or SQL INSERT statements.
+	 *  The frontend already holds the materialised rows from `run_query`/`fetch_more`,
+	 *  so this just serialises them — no database round-trip needed.
 	 */
-	exportQueryResult: (path: string, columns: string[], rows: { [key in string]: DbValue }[], format: string) => typedError<null, AppError>(__TAURI_INVOKE("export_query_result", { path, columns, rows, format })),
+	exportQueryResult: (path: string, columns: string[], rows: { [key in string]: DbValue }[], format: string, dialect: string, includeData: boolean | null) => typedError<null, AppError>(__TAURI_INVOKE("export_query_result", { path, columns, rows, format, dialect, includeData })),
 	/**
 	 *  Returns the SQL that *would* run, without touching the database. The UI shows
 	 *  this in a confirmation dialog; `execute_ddl` is a separate call so nothing
@@ -117,10 +117,17 @@ export const commands = {
 	listSavedQueries: () => typedError<SavedQuery[], AppError>(__TAURI_INVOKE("list_saved_queries")),
 	saveQuery: (name: string, sql: string) => typedError<SavedQuery, AppError>(__TAURI_INVOKE("save_query", { name, sql })),
 	deleteSavedQuery: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_saved_query", { id })),
-	exportTables: (connectionId: string, tables: ExportTableSpec[], format: ExportFormat, csvOptions: CsvOptions, destination: string) => typedError<ExportResult, AppError>(__TAURI_INVOKE("export_tables", { connectionId, tables, format, csvOptions, destination })),
+	exportTables: (connectionId: string, tables: ExportTableSpec[], format: ExportFormat, csvOptions: CsvOptions, destination: string, gzip: boolean) => typedError<ExportResult, AppError>(__TAURI_INVOKE("export_tables", { connectionId, tables, format, csvOptions, destination, gzip })),
 	previewCsv: (path: string, options: CsvImportOptions) => typedError<CsvPreview, AppError>(__TAURI_INVOKE("preview_csv", { path, options })),
 	importCsv: (connectionId: string, schema: string | null, table: string, path: string, options: CsvImportOptions) => typedError<ImportResult, AppError>(__TAURI_INVOKE("import_csv", { connectionId, schema, table, path, options })),
 	importSqlDump: (connectionId: string, path: string) => typedError<ImportResult, AppError>(__TAURI_INVOKE("import_sql_dump", { connectionId, path })),
+	listUsers: (connectionId: string) => typedError<DbUser[], AppError>(__TAURI_INVOKE("list_users", { connectionId })),
+	createUser: (connectionId: string, payload: UserPayload) => typedError<null, AppError>(__TAURI_INVOKE("create_user", { connectionId, payload })),
+	dropUser: (connectionId: string, name: string, host: string | null) => typedError<null, AppError>(__TAURI_INVOKE("drop_user", { connectionId, name, host })),
+	alterUserPassword: (connectionId: string, name: string, host: string | null, newPassword: string) => typedError<null, AppError>(__TAURI_INVOKE("alter_user_password", { connectionId, name, host, newPassword })),
+	userGrants: (connectionId: string, name: string, host: string | null) => typedError<DbGrant[], AppError>(__TAURI_INVOKE("user_grants", { connectionId, name, host })),
+	grantPrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("grant_privilege", { connectionId, name, host, privilege, schema, table })),
+	revokePrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("revoke_privilege", { connectionId, name, host, privilege, schema, table })),
 };
 
 /* Types */
@@ -210,6 +217,21 @@ export type DatabaseInfo = {
 	name: string,
 };
 
+export type DbGrant = {
+	privilege: string,
+	schema: string | null,
+	table: string | null,
+};
+
+export type DbUser = {
+	name: string,
+	host: string | null,
+	superuser: boolean,
+	canCreateDb: boolean,
+	canCreateRole: boolean,
+	canLogin: boolean,
+};
+
 /**
  *  Dynamic decode target for a single cell value. Every driver's `decode.rs` must map
  *  into this without panicking — unrecognized/exotic column types fall back to
@@ -255,10 +277,9 @@ export type ExportTableSpec = {
 	table: string,
 	/**  `None` exports every column, in the table's own order. */
 	columns: string[] | null,
-	/**
-	 *  `false` writes only the table's DDL (CREATE TABLE + indexes) and no rows.
-	 *  Only meaningful for SQL exports; CSV/JSON always include data.
-	 */
+	/**  SQL-export flags — ignored for CSV/JSON which always include data. */
+	includeStructure?: boolean,
+	includeDrop?: boolean,
 	includeData?: boolean,
 };
 
@@ -437,6 +458,13 @@ export type TriggerInfo = {
 	timing: string,
 	event: string,
 	statement: string,
+};
+
+export type UserPayload = {
+	name: string,
+	password: string | null,
+	host: string | null,
+	superuser: boolean | null,
 };
 
 /* Tauri Specta runtime */

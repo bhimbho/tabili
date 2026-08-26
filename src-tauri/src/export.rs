@@ -72,8 +72,11 @@ pub struct ExportTableSpec {
     pub table: String,
     /// `None` exports every column, in the table's own order.
     pub columns: Option<Vec<String>>,
-    /// `false` writes only the table's DDL (CREATE TABLE + indexes) and no rows.
-    /// Only meaningful for SQL exports; CSV/JSON always include data.
+    /// SQL-export flags — ignored for CSV/JSON which always include data.
+    #[serde(default = "default_true")]
+    pub include_structure: bool,
+    #[serde(default)]
+    pub include_drop: bool,
     #[serde(default = "default_true")]
     pub include_data: bool,
 }
@@ -153,7 +156,7 @@ fn json_cell(value: &DbValue) -> serde_json::Value {
     }
 }
 
-fn quote_ident(name: &str, dialect: SqlDialect) -> String {
+pub fn quote_ident(name: &str, dialect: SqlDialect) -> String {
     match dialect {
         SqlDialect::MySql => format!("`{}`", name.replace('`', "``")),
         _ => format!("\"{}\"", name.replace('"', "\"\"")),
@@ -162,7 +165,7 @@ fn quote_ident(name: &str, dialect: SqlDialect) -> String {
 
 /// Renders a value as a SQL literal. Every string form is single-quoted with
 /// embedded quotes doubled, so exported dumps re-import cleanly.
-fn sql_literal(value: &DbValue) -> String {
+pub fn sql_literal(value: &DbValue) -> String {
     fn quoted(s: &str) -> String {
         format!("'{}'", s.replace('\'', "''"))
     }
@@ -248,10 +251,10 @@ fn io_err(e: impl std::fmt::Display) -> DbError {
     DbError::Other(format!("export failed: {e}"))
 }
 
-async fn write_csv(
+async fn write_csv<W: Write + Send>(
     driver: &dyn DatabaseDriver,
     spec: &ExportTableSpec,
-    path: &Path,
+    out: &mut W,
     opts: &CsvOptions,
 ) -> Result<i64, DbError> {
     let quote_style = match opts.quoting {
@@ -268,8 +271,7 @@ async fn write_csv(
         .delimiter(first_byte(&opts.delimiter, b','))
         .quote_style(quote_style)
         .terminator(terminator)
-        .from_path(path)
-        .map_err(io_err)?;
+        .from_writer(out);
 
     let mut wrote_header = false;
     let total = for_each_page(driver, spec, |columns, rows| {
@@ -303,13 +305,11 @@ async fn write_csv(
     Ok(total)
 }
 
-async fn write_json(
+async fn write_json<W: Write + Send>(
     driver: &dyn DatabaseDriver,
     spec: &ExportTableSpec,
-    path: &Path,
+    out: &mut W,
 ) -> Result<i64, DbError> {
-    let file = std::fs::File::create(path).map_err(io_err)?;
-    let mut out = std::io::BufWriter::new(file);
     out.write_all(b"[\n").map_err(io_err)?;
 
     let mut first = true;
@@ -336,8 +336,8 @@ async fn write_json(
     Ok(total)
 }
 
-/// Appends `spec`'s rows as INSERT statements. Multiple tables share one file,
-/// so this takes an already-open writer rather than a path.
+/// Appends `spec`'s DDL and/or rows to an already-open writer.
+/// Multiple tables share one file, so this takes a writer rather than a path.
 async fn write_sql(
     driver: &dyn DatabaseDriver,
     spec: &ExportTableSpec,
@@ -347,34 +347,36 @@ async fn write_sql(
     let target = qualified(spec, dialect);
     writeln!(out, "-- {}", spec.table).map_err(io_err)?;
 
-    // Schema-only export: emit the CREATE TABLE (and indexes) and stop. The
-    // driver's DDL builder already produces a faithful, dialect-correct
-    // statement, so we reuse it rather than reconstructing it here.
-    if !spec.include_data {
-        let ddl = driver.get_table_ddl(&table_ref(spec)).await?;
-        writeln!(out, "{ddl}").map_err(io_err)?;
-        writeln!(out).map_err(io_err)?;
-        return Ok(0);
+    if spec.include_drop {
+        writeln!(out, "DROP TABLE IF EXISTS {target};").map_err(io_err)?;
     }
 
-    let total = for_each_page(driver, spec, |columns, rows| {
-        let column_list = columns
-            .iter()
-            .map(|c| quote_ident(c, dialect))
-            .collect::<Vec<_>>()
-            .join(", ");
-        for row in rows {
-            let values = columns
+    if spec.include_structure {
+        let ddl = driver.get_table_ddl(&table_ref(spec)).await?;
+        writeln!(out, "{ddl}").map_err(io_err)?;
+    }
+
+    let mut total = 0i64;
+    if spec.include_data {
+        total = for_each_page(driver, spec, |columns, rows| {
+            let column_list = columns
                 .iter()
-                .map(|c| sql_literal(row.get(c).unwrap_or(&DbValue::Null)))
+                .map(|c| quote_ident(c, dialect))
                 .collect::<Vec<_>>()
                 .join(", ");
-            writeln!(out, "INSERT INTO {target} ({column_list}) VALUES ({values});")
-                .map_err(io_err)?;
-        }
-        Ok(())
-    })
-    .await?;
+            for row in rows {
+                let values = columns
+                    .iter()
+                    .map(|c| sql_literal(row.get(c).unwrap_or(&DbValue::Null)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                writeln!(out, "INSERT INTO {target} ({column_list}) VALUES ({values});")
+                    .map_err(io_err)?;
+            }
+            Ok(())
+        })
+        .await?;
+    }
 
     writeln!(out).map_err(io_err)?;
     Ok(total)
@@ -391,6 +393,7 @@ pub async fn export_tables(
     format: ExportFormat,
     csv_options: &CsvOptions,
     destination: &str,
+    gzip: bool,
 ) -> Result<ExportResult, DbError> {
     if tables.is_empty() {
         return Err(DbError::Other("select at least one table to export".into()));
@@ -398,17 +401,32 @@ pub async fn export_tables(
     let dialect = driver.dialect();
     let destination = PathBuf::from(destination);
 
-    // SQL exports concatenate into one dump regardless of table count.
+    // A gzipped export appends `.gz` to the target name.
+    let gz_suffix = if gzip { ".gz" } else { "" };
+
+    // SQL exports write a single dump regardless of table count.
     if format == ExportFormat::Sql {
-        let file = std::fs::File::create(&destination).map_err(io_err)?;
-        let mut out = std::io::BufWriter::new(file);
+        let path = with_gz_suffix(&destination, gz_suffix);
+        let file = std::fs::File::create(&path).map_err(io_err)?;
         let mut rows_written = 0i64;
-        for spec in tables {
-            rows_written += write_sql(driver, spec, &mut out, dialect).await?;
+        if gzip {
+            let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            let mut out = std::io::BufWriter::new(enc);
+            for spec in tables {
+                rows_written += write_sql(driver, spec, &mut out, dialect).await?;
+            }
+            let enc = out.into_inner().map_err(io_err)?;
+            let mut file = enc.finish().map_err(io_err)?;
+            file.flush().map_err(io_err)?;
+        } else {
+            let mut out = std::io::BufWriter::new(file);
+            for spec in tables {
+                rows_written += write_sql(driver, spec, &mut out, dialect).await?;
+            }
+            out.flush().map_err(io_err)?;
         }
-        out.flush().map_err(io_err)?;
         return Ok(ExportResult {
-            files: vec![destination.to_string_lossy().to_string()],
+            files: vec![path.to_string_lossy().to_string()],
             rows_written,
         });
     }
@@ -422,19 +440,56 @@ pub async fn export_tables(
     let mut rows_written = 0i64;
     for spec in tables {
         let path = if single_file {
-            destination.clone()
+            with_gz_suffix(&destination, gz_suffix)
         } else {
-            destination.join(format!("{}.{}", spec.table, format.extension()))
+            let p = destination.join(format!("{}.{}", spec.table, format.extension()));
+            if gzip {
+                with_gz_suffix(&p, gz_suffix)
+            } else {
+                p
+            }
         };
-        rows_written += match format {
-            ExportFormat::Csv => write_csv(driver, spec, &path, csv_options).await?,
-            ExportFormat::Json => write_json(driver, spec, &path).await?,
-            ExportFormat::Sql => unreachable!("handled above"),
+        let file = std::fs::File::create(&path).map_err(io_err)?;
+        let mut file = std::io::BufWriter::new(file);
+        rows_written += if gzip {
+            let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            let mut out = std::io::BufWriter::new(enc);
+            let n = match format {
+                ExportFormat::Csv => write_csv(driver, spec, &mut out, csv_options).await?,
+                ExportFormat::Json => write_json(driver, spec, &mut out).await?,
+                ExportFormat::Sql => unreachable!("handled above"),
+            };
+            let enc = out.into_inner().map_err(io_err)?;
+            let mut f = enc.finish().map_err(io_err)?;
+            f.flush().map_err(io_err)?;
+            n
+        } else {
+            match format {
+                ExportFormat::Csv => write_csv(driver, spec, &mut file, csv_options).await?,
+                ExportFormat::Json => write_json(driver, spec, &mut file).await?,
+                ExportFormat::Sql => unreachable!("handled above"),
+            }
         };
         files.push(path.to_string_lossy().to_string());
     }
 
     Ok(ExportResult { files, rows_written })
+}
+
+/// Appends `.gz` to the file name when compressing. If the name already ends
+/// in `.gz` (e.g. the save dialog gave us `name.sql.gz`), it is left alone.
+fn with_gz_suffix(path: &Path, suffix: &str) -> PathBuf {
+    if suffix.is_empty() {
+        return path.to_path_buf();
+    }
+    let mut name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "export".to_string());
+    if !name.ends_with(".gz") {
+        name.push_str(suffix);
+    }
+    path.with_file_name(name)
 }
 
 #[cfg(test)]

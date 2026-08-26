@@ -262,6 +262,17 @@ async function dispatch(action: string, queryClient: QueryClient) {
       });
       return;
     }
+    case "tools.user-management": {
+      if (!activeId) return;
+      tabs.openTab({
+        id: `${activeId}:users`,
+        connectionId: activeId,
+        title: "Users",
+        kind: "users",
+        schema: null,
+      });
+      return;
+    }
   }
 }
 

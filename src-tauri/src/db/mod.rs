@@ -124,6 +124,40 @@ pub trait DatabaseDriver: Send + Sync {
     async fn build_drop_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError>;
     async fn build_truncate_table_ddl(&self, table: &TableRef) -> Result<Vec<String>, DbError>;
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError>;
+
+    // --- user management (only meaningful for Postgres / MySQL) ---
+    async fn list_users(&self) -> Result<Vec<DbUser>, DbError>;
+    async fn create_user(
+        &self,
+        name: &str,
+        password: &str,
+        host: Option<&str>,
+        superuser: bool,
+    ) -> Result<(), DbError>;
+    async fn drop_user(&self, name: &str, host: Option<&str>) -> Result<(), DbError>;
+    async fn alter_user_password(
+        &self,
+        name: &str,
+        host: Option<&str>,
+        new_password: &str,
+    ) -> Result<(), DbError>;
+    async fn user_grants(&self, name: &str, host: Option<&str>) -> Result<Vec<DbGrant>, DbError>;
+    async fn grant_privilege(
+        &self,
+        name: &str,
+        host: Option<&str>,
+        privilege: &str,
+        schema: Option<&str>,
+        table: Option<&str>,
+    ) -> Result<(), DbError>;
+    async fn revoke_privilege(
+        &self,
+        name: &str,
+        host: Option<&str>,
+        privilege: &str,
+        schema: Option<&str>,
+        table: Option<&str>,
+    ) -> Result<(), DbError>;
 }
 
 pub async fn connect_driver(

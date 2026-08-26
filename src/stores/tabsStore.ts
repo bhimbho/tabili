@@ -4,7 +4,7 @@ export interface OpenTab {
   id: string;
   connectionId: string;
   title: string;
-  kind: "table" | "query" | "erd";
+  kind: "table" | "query" | "erd" | "users";
   /** null for SQLite / driver default. */
   schema: string | null;
   /** Set when the tab was opened by following a foreign key. */

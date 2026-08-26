@@ -25,6 +25,7 @@ pub async fn export_tables(
     format: ExportFormat,
     csv_options: CsvOptions,
     destination: String,
+    gzip: bool,
 ) -> Result<ExportResult, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     export::export_tables(
@@ -33,6 +34,7 @@ pub async fn export_tables(
         format,
         &csv_options,
         &destination,
+        gzip,
     )
     .await
     .map_err(AppError::from)

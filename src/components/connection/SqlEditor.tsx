@@ -88,10 +88,12 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
       sql,
       findOpen,
       fontSize: storeFontSize,
+      columns,
+      rows,
       runCurrent: () => void runCurrent(),
       runAll: () => void runAll(),
     });
-  }, [register, tabId, sql, findOpen, storeFontSize]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [register, tabId, sql, findOpen, storeFontSize, columns, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The menu can toggle the find bar; reflect that here.
   useEffect(() => {
@@ -252,14 +254,26 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     },
   ];
 
-  async function exportResult(format: "csv" | "json") {
+  const [exportFormat, setExportFormat] = useState<"csv" | "json" | "sql">("csv");
+  const [csvHeader, setCsvHeader] = useState(true);
+  const [sqlIncludeData, setSqlIncludeData] = useState(true);
+
+  async function exportResult() {
     if (rows.length === 0) return;
+    const ext = exportFormat;
     const path = await saveFileDialog({
-      defaultPath: `query-result.${format}`,
-      filters: [{ name: format.toUpperCase(), extensions: [format] }],
+      defaultPath: `query-result.${ext}`,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     });
     if (!path) return;
-    const res = await commands.exportQueryResult(path, columns, rows, format);
+    const res = await commands.exportQueryResult(
+      path,
+      columns,
+      rows,
+      ext,
+      dialect,
+      exportFormat === "sql" ? sqlIncludeData : null,
+    );
     if (res.status === "error") {
       setError(friendlyError(res.error.message));
     }
@@ -308,20 +322,57 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
         >
           Find
         </button>
-        <button
-          onClick={() => void exportResult("csv")}
-          disabled={rows.length === 0}
-          className="rounded-md bg-(--active) px-2.5 py-1 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover) disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Export CSV
-        </button>
-        <button
-          onClick={() => void exportResult("json")}
-          disabled={rows.length === 0}
-          className="rounded-md bg-(--active) px-2.5 py-1 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover) disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Export JSON
-        </button>
+        {/* Inline export panel */}
+        <div className="flex items-center gap-1.5 rounded-md border border-(--border) bg-(--surface-raised) px-1.5 py-0.5">
+          {/* Format toggles */}
+          {(["csv", "json", "sql"] as const).map((fmt) => (
+            <button
+              key={fmt}
+              onClick={() => setExportFormat(fmt)}
+              disabled={rows.length === 0}
+              className={clsx(
+                "rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors",
+                exportFormat === fmt
+                  ? "bg-(--accent) text-(--accent-text)"
+                  : "text-(--text-muted) hover:text-(--text)",
+              )}
+            >
+              {fmt.toUpperCase()}
+            </button>
+          ))}
+          <div className="mx-1 h-3 w-px bg-(--border)" />
+          {/* CSV / SQL options */}
+          {exportFormat === "csv" && (
+            <label className="flex cursor-pointer items-center gap-1">
+              <input
+                type="checkbox"
+                checked={csvHeader}
+                onChange={(e) => setCsvHeader(e.target.checked)}
+                className="accent-indigo-500"
+              />
+              <span className="text-[11px] text-(--text-muted)">Header</span>
+            </label>
+          )}
+          {exportFormat === "sql" && (
+            <label className="flex cursor-pointer items-center gap-1">
+              <input
+                type="checkbox"
+                checked={sqlIncludeData}
+                onChange={(e) => setSqlIncludeData(e.target.checked)}
+                className="accent-indigo-500"
+              />
+              <span className="text-[11px] text-(--text-muted)">Include data</span>
+            </label>
+          )}
+          <div className="mx-1 h-3 w-px bg-(--border)" />
+          <button
+            onClick={() => void exportResult()}
+            disabled={rows.length === 0}
+            className="rounded px-2 py-0.5 text-[11px] font-medium text-(--accent) transition-colors hover:bg-(--accent)/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Export
+          </button>
+        </div>
         {rows.length > 0 && (
           <span className="ml-auto text-[11px] text-(--text-faint)">
             {rows.length} row{rows.length === 1 ? "" : "s"}

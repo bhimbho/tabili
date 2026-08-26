@@ -72,6 +72,13 @@ pub fn run() {
         commands::transfer::preview_csv,
         commands::transfer::import_csv,
         commands::transfer::import_sql_dump,
+        commands::users::list_users,
+        commands::users::create_user,
+        commands::users::drop_user,
+        commands::users::alter_user_password,
+        commands::users::user_grants,
+        commands::users::grant_privilege,
+        commands::users::revoke_privilege,
     ]);
 
     #[cfg(debug_assertions)]

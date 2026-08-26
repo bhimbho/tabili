@@ -12,7 +12,7 @@ use crate::db::{
     filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
     DbError, DbValue, FetchOptions, ForeignKeyInfo, FunctionInfo, IndexInfo, QueryExecutionId,
     QueryHandle, RowPage, SchemaInfo, SchemaRef, ServerInfo, SqlDialect, TableDiff, TableInfo,
-    TableRef, TableSpec, TriggerInfo,
+    TableRef, TableSpec, TriggerInfo, DbUser, DbGrant,
 };
 use introspect::quote_ident;
 
@@ -394,5 +394,158 @@ impl DatabaseDriver for MySqlDriver {
     }
     async fn execute_ddl(&self, statements: &[String]) -> Result<(), DbError> {
         ddl::execute_ddl(&self.pool, statements).await
+    }
+    // --- user management ---
+    async fn list_users(&self) -> Result<Vec<DbUser>, DbError> {
+        let rows = sqlx::query(
+            r#"SELECT user AS name,
+                       host,
+                       Super_priv = 'Y' AS superuser,
+                       Create_priv = 'Y' AS create_db,
+                       Create_user_priv = 'Y' AS create_role,
+                       1 AS can_login
+                FROM mysql.user"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+        let mut users = Vec::with_capacity(rows.len());
+        for row in rows {
+            users.push(DbUser {
+                name: row.get("name"),
+                host: row.try_get("host").ok(),
+                superuser: row.get("superuser"),
+                can_create_db: row.get("create_db"),
+                can_create_role: row.get("create_role"),
+                can_login: row.get("can_login"),
+            });
+        }
+        Ok(users)
+    }
+    async fn create_user(
+        &self,
+        name: &str,
+        password: &str,
+        host: Option<&str>,
+        _superuser: bool,
+    ) -> Result<(), DbError> {
+        let quoted = quote_ident(name);
+        let h = host.unwrap_or("%");
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "CREATE USER {quoted}@'{h}' IDENTIFIED BY '{password}'"
+        )))
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(())
+    }
+    async fn drop_user(&self, name: &str, host: Option<&str>) -> Result<(), DbError> {
+        let quoted = quote_ident(name);
+        let h = host.unwrap_or("%");
+        sqlx::query(sqlx::AssertSqlSafe(format!("DROP USER {quoted}@'{h}'")))
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(())
+    }
+    async fn alter_user_password(
+        &self,
+        name: &str,
+        host: Option<&str>,
+        new_password: &str,
+    ) -> Result<(), DbError> {
+        let quoted = quote_ident(name);
+        let h = host.unwrap_or("%");
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "ALTER USER {quoted}@'{h}' IDENTIFIED BY '{new_password}'"
+        )))
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(())
+    }
+    async fn user_grants(&self, name: &str, host: Option<&str>) -> Result<Vec<DbGrant>, DbError> {
+        let h = host.unwrap_or("%");
+        let rows = sqlx::query("SHOW GRANTS FOR ?@?")
+            .bind(name)
+            .bind(h)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Query(e.to_string()))?;
+        let mut grants = Vec::with_capacity(rows.len());
+        for row in rows {
+            let raw: String = row.get(0);
+            // rough parse: "GRANT priv[, priv] ON `db`.`tbl` TO ..."
+            if let Some(rest) = raw.strip_prefix("GRANT ") {
+                let parts: Vec<&str> = rest.split(" ON ").collect();
+                if parts.len() == 2 {
+                    let privs = parts[0];
+                    let obj = parts[1].split(" TO ").next().unwrap_or(parts[1]);
+                    for p in privs.split(", ") {
+                        let mut schema = None;
+                        let mut table = None;
+                        if obj.contains(".") {
+                            let o: Vec<&str> = obj.split(".").collect();
+                            schema = Some(o[0].trim_matches('`').to_string());
+                            table = Some(o[1].trim_matches('`').to_string());
+                        }
+                        grants.push(DbGrant {
+                            privilege: p.to_string(),
+                            schema,
+                            table,
+                        });
+                    }
+                }
+            }
+        }
+        Ok(grants)
+    }
+    async fn grant_privilege(
+        &self,
+        name: &str,
+        host: Option<&str>,
+        privilege: &str,
+        schema: Option<&str>,
+        table: Option<&str>,
+    ) -> Result<(), DbError> {
+        let quoted = quote_ident(name);
+        let h = host.unwrap_or("%");
+        let obj = match (schema, table) {
+            (Some(s), Some(t)) => format!("{}.{}.*", quote_ident(s), quote_ident(t)),
+            (Some(s), None) => format!("{}.*", quote_ident(s)),
+            (None, Some(t)) => format!("*.{}", quote_ident(t)),
+            (None, None) => "*.*".to_string(),
+        };
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "GRANT {privilege} ON {obj} TO {quoted}@'{h}'"
+        )))
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(())
+    }
+    async fn revoke_privilege(
+        &self,
+        name: &str,
+        host: Option<&str>,
+        privilege: &str,
+        schema: Option<&str>,
+        table: Option<&str>,
+    ) -> Result<(), DbError> {
+        let quoted = quote_ident(name);
+        let h = host.unwrap_or("%");
+        let obj = match (schema, table) {
+            (Some(s), Some(t)) => format!("{}.{}.*", quote_ident(s), quote_ident(t)),
+            (Some(s), None) => format!("{}.*", quote_ident(s)),
+            (None, Some(t)) => format!("*.{}", quote_ident(t)),
+            (None, None) => "*.*".to_string(),
+        };
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "REVOKE {privilege} ON {obj} FROM {quoted}@'{h}'"
+        )))
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
+        Ok(())
     }
 }
