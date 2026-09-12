@@ -34,12 +34,15 @@ pub async fn list_schemas(pool: &PgPool) -> Result<Vec<String>, DbError> {
     Ok(rows.into_iter().map(|r| r.get::<String, _>("schema_name")).collect())
 }
 
-async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+async fn list_by_type(pool: &PgPool, schema: &str, relkinds: &[&str], is_view: bool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
     let mut query_str = String::from(
+        // relispartition hides the individual partitions of a partitioned
+        // table; the parent is listed instead, which is what people query.
         "SELECT c.relname AS table_name \
          FROM pg_class c \
          JOIN pg_namespace n ON n.oid = c.relnamespace \
-         WHERE n.nspname = $1 AND c.relkind = $2",
+         WHERE n.nspname = $1 AND c.relkind::text = ANY($2) \
+           AND NOT c.relispartition",
     );
 
     if filter.is_some() {
@@ -47,9 +50,10 @@ async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bo
     }
     query_str.push_str(" ORDER BY c.relname");
 
+    let kinds: Vec<String> = relkinds.iter().map(|k| k.to_string()).collect();
     let mut query = sqlx::query(sqlx::AssertSqlSafe(query_str))
         .bind(schema)
-        .bind(table_type);
+        .bind(kinds);
 
     if let Some(f) = filter {
         query = query.bind(format!("%{}%", f));
@@ -71,11 +75,13 @@ async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bo
 }
 
 pub async fn list_tables(pool: &PgPool, schema: &str, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "r", false, filter).await
+    // "p" is a partitioned table: the parent relation users think of as the
+    // table. Without it, only its partitions would show up.
+    list_by_type(pool, schema, &["r", "p"], false, filter).await
 }
 
 pub async fn list_views(pool: &PgPool, schema: &str, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "v", true, filter).await
+    list_by_type(pool, schema, &["v"], true, filter).await
 }
 
 pub async fn list_functions(pool: &PgPool, schema: &str, filter: Option<&str>) -> Result<Vec<FunctionInfo>, DbError> {
