@@ -91,13 +91,13 @@ impl DatabaseDriver for SqliteDriver {
         // SQLite has no schema concept beyond the single implicit "main".
         Ok(vec![])
     }
-    async fn list_tables(&self, _schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
-        introspect::list_tables(&self.pool).await
+    async fn list_tables(&self, _schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+        introspect::list_tables(&self.pool, filter).await
     }
-    async fn list_views(&self, _schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
-        introspect::list_views(&self.pool).await
+    async fn list_views(&self, _schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+        introspect::list_views(&self.pool, filter).await
     }
-    async fn list_functions(&self, _schema: &SchemaRef) -> Result<Vec<FunctionInfo>, DbError> {
+    async fn list_functions(&self, _schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<FunctionInfo>, DbError> {
         // SQLite has no catalog of user-defined functions.
         Ok(vec![])
     }

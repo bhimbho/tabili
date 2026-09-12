@@ -9,22 +9,34 @@ pub fn quote_ident(ident: &str) -> String {
     format!("\"{}\"", ident.replace('"', "\"\""))
 }
 
-pub async fn list_tables(pool: &SqlitePool) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, "table", false).await
+pub async fn list_tables(pool: &SqlitePool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    list_by_type(pool, "table", false, filter).await
 }
 
-pub async fn list_views(pool: &SqlitePool) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, "view", true).await
+pub async fn list_views(pool: &SqlitePool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    list_by_type(pool, "view", true, filter).await
 }
 
-async fn list_by_type(pool: &SqlitePool, kind: &str, is_view: bool) -> Result<Vec<TableInfo>, DbError> {
-    let rows = sqlx::query(
-        "SELECT name FROM sqlite_master WHERE type = ?1 AND name NOT LIKE 'sqlite_%' ORDER BY name",
-    )
-    .bind(kind)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| DbError::Query(e.to_string()))?;
+async fn list_by_type(pool: &SqlitePool, kind: &str, is_view: bool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    let mut query_str = String::from(
+        "SELECT name FROM sqlite_master WHERE type = ?1 AND name NOT LIKE 'sqlite_%'",
+    );
+
+    if filter.is_some() {
+        query_str.push_str(" AND name LIKE ?2");
+    }
+    query_str.push_str(" ORDER BY name");
+
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(query_str)).bind(kind);
+
+    if let Some(f) = filter {
+        query = query.bind(format!("%{}%", f));
+    }
+
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
 
     Ok(rows
         .into_iter()

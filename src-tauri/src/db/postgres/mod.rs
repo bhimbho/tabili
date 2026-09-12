@@ -61,6 +61,12 @@ impl PostgresDriver {
         if let Some(cert) = config.ssl_cert_path.as_deref().filter(|p| !p.is_empty()) {
             opts = opts.ssl_client_cert(cert);
         }
+        if let Some(ca) = config.ssl_ca_path.as_deref().filter(|p| !p.is_empty()) {
+            opts = opts.ssl_root_cert(ca);
+        }
+        if let Some(cert) = config.ssl_cert_path.as_deref().filter(|p| !p.is_empty()) {
+            opts = opts.ssl_client_cert(cert);
+        }
         if let Some(key) = config.ssl_key_path.as_deref().filter(|p| !p.is_empty()) {
             opts = opts.ssl_client_key(key);
         }
@@ -144,14 +150,14 @@ impl DatabaseDriver for PostgresDriver {
             .map(|name| SchemaInfo { name })
             .collect())
     }
-    async fn list_tables(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
-        introspect::list_tables(&self.pool, Self::schema_of(schema)).await
+    async fn list_tables(&self, schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+        introspect::list_tables(&self.pool, Self::schema_of(schema), filter).await
     }
-    async fn list_views(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
-        introspect::list_views(&self.pool, Self::schema_of(schema)).await
+    async fn list_views(&self, schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+        introspect::list_views(&self.pool, Self::schema_of(schema), filter).await
     }
-    async fn list_functions(&self, schema: &SchemaRef) -> Result<Vec<FunctionInfo>, DbError> {
-        introspect::list_functions(&self.pool, Self::schema_of(schema)).await
+    async fn list_functions(&self, schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<FunctionInfo>, DbError> {
+        introspect::list_functions(&self.pool, Self::schema_of(schema), filter).await
     }
     async fn get_columns(&self, table: &TableRef) -> Result<Vec<ColumnInfo>, DbError> {
         let schema = table.schema.as_deref().unwrap_or(DEFAULT_SCHEMA);

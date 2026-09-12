@@ -151,14 +151,14 @@ impl DatabaseDriver for MySqlDriver {
             .map(|name| SchemaInfo { name })
             .collect())
     }
-    async fn list_tables(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
-        introspect::list_tables(&self.pool, self.resolve_schema(schema.schema.as_deref())?).await
+    async fn list_tables(&self, schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+        introspect::list_tables(&self.pool, self.resolve_schema(schema.schema.as_deref())?, filter).await
     }
-    async fn list_views(&self, schema: &SchemaRef) -> Result<Vec<TableInfo>, DbError> {
-        introspect::list_views(&self.pool, self.resolve_schema(schema.schema.as_deref())?).await
+    async fn list_views(&self, schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+        introspect::list_views(&self.pool, self.resolve_schema(schema.schema.as_deref())?, filter).await
     }
-    async fn list_functions(&self, schema: &SchemaRef) -> Result<Vec<FunctionInfo>, DbError> {
-        introspect::list_functions(&self.pool, self.resolve_schema(schema.schema.as_deref())?)
+    async fn list_functions(&self, schema: &SchemaRef, filter: Option<&str>) -> Result<Vec<FunctionInfo>, DbError> {
+        introspect::list_functions(&self.pool, self.resolve_schema(schema.schema.as_deref())?, filter)
             .await
     }
     async fn get_columns(&self, table: &TableRef) -> Result<Vec<ColumnInfo>, DbError> {

@@ -51,13 +51,19 @@ function Group({
   );
 }
 
+interface VirtualizedListProps {
+  items: { name: string }[];
+  icon: React.ComponentType<{ className?: string }>;
+  onSelect?: (name: string) => void;
+  onContextMenu?: (e: React.MouseEvent, name: string) => void;
+}
+
 function VirtualizedList({
   items,
   icon: Icon,
   onSelect,
   onContextMenu,
-  isView = false,
-}) {
+}: VirtualizedListProps) {
   if (items.length === 0) return null;
 
   return (
@@ -68,7 +74,7 @@ function VirtualizedList({
       width="100%"
       className="scrollbar-thin"
     >
-      {({ index, style }) => {
+      {({ index, style }: any) => {
         const item = items[index];
         return (
           <div style={style}>
@@ -187,18 +193,13 @@ export function ObjectPanel() {
     }
   }
 
-  const { data: tables, isLoading, error } = useTables(connected ? connectionId : null, schema);
-  const { data: views } = useViews(connected ? connectionId : null, schema);
-  const { data: functions } = useFunctions(connected ? connectionId : null, schema);
+  const { data: tables, isLoading, error } = useTables(connected ? connectionId : null, schema, search);
+  const { data: views } = useViews(connected ? connectionId : null, schema, search);
+  const { data: functions } = useFunctions(connected ? connectionId : null, schema, search);
 
-  const needle = search.trim().toLowerCase();
-  const match = (n: string) => !needle || n.toLowerCase().includes(needle);
-  const shownTables = useMemo(() => (tables ?? []).filter((t) => match(t.name)), [tables, needle]);
-  const shownViews = useMemo(() => (views ?? []).filter((v) => match(v.name)), [views, needle]);
-  const shownFunctions = useMemo(
-    () => (functions ?? []).filter((f) => match(f.name)),
-    [functions, needle],
-  );
+  const shownTables = tables ?? [];
+  const shownViews = views ?? [];
+  const shownFunctions = functions ?? [];
 
   function open(name: string) {
     if (!connectionId) return;
@@ -355,33 +356,26 @@ export function ObjectPanel() {
                 items={shownTables}
                 icon={TableIcon}
                 onSelect={open}
-                onContextMenu={(e, name) => {
+                onContextMenu={(e: React.MouseEvent, name: string) => {
                   setMenuTable(name);
                   menu.open(e);
                 }}
               />
               {shownTables.length === 0 && (
                 <p className="px-2 py-1 pl-5 text-xs text-(--text-faint)">
-                  {needle ? "No matches." : "No tables."}
+                  {search ? "No matches." : "No tables."}
                 </p>
               )}
             </Group>
 
             {shownFunctions.length > 0 && (
               <Group title="Functions" count={shownFunctions.length}>
-                {shownFunctions.map((f) => (
-                  <div
-                    key={`${f.name}(${f.arguments})`}
-                    title={`${f.name}(${f.arguments}) → ${f.returns}`}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted)"
-                  >
-                    <FunctionIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
-                    <span className="truncate">{f.name}</span>
-                    <span className="ml-auto shrink-0 text-[10px] text-(--text-faint)">
-                      {f.kind === "procedure" ? "proc" : "fn"}
-                    </span>
-                  </div>
-                ))}
+                <VirtualizedList
+                  items={shownFunctions}
+                  icon={FunctionIcon}
+                onSelect={undefined} // Functions aren't "opened" like tables in current UI
+                onContextMenu={undefined}
+                />
               </Group>
             )}
 
@@ -391,17 +385,11 @@ export function ObjectPanel() {
                   items={shownViews}
                   icon={ViewIcon}
                   onSelect={open}
-                  onContextMenu={(e, name) => {
+                  onContextMenu={(e: React.MouseEvent, name: string) => {
                     setMenuTable(name);
                     menu.open(e);
                   }}
-                  isView
                 />
-                {shownViews.length === 0 && (
-                  <p className="px-2 py-1 pl-5 text-xs text-(--text-faint)">
-                    {needle ? "No matches." : "No views."}
-                  </p>
-                )}
               </Group>
             )}
           </>

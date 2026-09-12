@@ -25,26 +25,26 @@ export function useSchemas(connectionId: string | null) {
   });
 }
 
-export function useTables(connectionId: string | null, schema?: Schema) {
+export function useTables(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
-    queryKey: ["tables", connectionId, schema ?? null],
-    queryFn: async () => unwrap(await commands.listTables(connectionId as string, schema ?? null)),
+    queryKey: ["tables", connectionId, schema ?? null, filter ?? null],
+    queryFn: async () => unwrap(await commands.listTables(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }
 
-export function useViews(connectionId: string | null, schema?: Schema) {
+export function useViews(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
-    queryKey: ["views", connectionId, schema ?? null],
-    queryFn: async () => unwrap(await commands.listViews(connectionId as string, schema ?? null)),
+    queryKey: ["views", connectionId, schema ?? null, filter ?? null],
+    queryFn: async () => unwrap(await commands.listViews(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }
 
-export function useFunctions(connectionId: string | null, schema?: Schema) {
+export function useFunctions(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
-    queryKey: ["functions", connectionId, schema ?? null],
-    queryFn: async () => unwrap(await commands.listFunctions(connectionId as string, schema ?? null)),
+    queryKey: ["functions", connectionId, schema ?? null, filter ?? null],
+    queryFn: async () => unwrap(await commands.listFunctions(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }

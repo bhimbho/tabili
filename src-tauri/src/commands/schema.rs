@@ -40,10 +40,11 @@ pub async fn list_tables(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
     schema: Option<String>,
+    filter: Option<String>,
 ) -> Result<Vec<TableInfo>, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .list_tables(&SchemaRef { database: None, schema })
+        .list_tables(&SchemaRef { database: None, schema }, filter.as_deref())
         .await
         .map_err(AppError::from)
 }
@@ -54,10 +55,11 @@ pub async fn list_views(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
     schema: Option<String>,
+    filter: Option<String>,
 ) -> Result<Vec<TableInfo>, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .list_views(&SchemaRef { database: None, schema })
+        .list_views(&SchemaRef { database: None, schema }, filter.as_deref())
         .await
         .map_err(AppError::from)
 }
@@ -68,10 +70,11 @@ pub async fn list_functions(
     registry: State<'_, ConnectionRegistry>,
     connection_id: String,
     schema: Option<String>,
+    filter: Option<String>,
 ) -> Result<Vec<FunctionInfo>, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     driver
-        .list_functions(&SchemaRef { database: None, schema })
+        .list_functions(&SchemaRef { database: None, schema }, filter.as_deref())
         .await
         .map_err(AppError::from)
 }
@@ -193,7 +196,7 @@ pub async fn get_schema_graph(
     let driver = resolve(&registry, &connection_id).await?;
     let schema_ref = SchemaRef { database: None, schema: schema.clone() };
 
-    let tables = driver.list_tables(&schema_ref).await?;
+    let tables = driver.list_tables(&schema_ref, None).await?;
     let mut columns = Vec::with_capacity(tables.len());
     let mut foreign_keys = Vec::with_capacity(tables.len());
     for t in &tables {

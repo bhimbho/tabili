@@ -34,18 +34,31 @@ pub async fn list_schemas(pool: &PgPool) -> Result<Vec<String>, DbError> {
     Ok(rows.into_iter().map(|r| r.get::<String, _>("schema_name")).collect())
 }
 
-async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bool) -> Result<Vec<TableInfo>, DbError> {
-    let rows = sqlx::query(
+async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    let mut query_str = String::from(
         "SELECT c.relname AS table_name \
          FROM pg_class c \
          JOIN pg_namespace n ON n.oid = c.relnamespace \
-         WHERE n.nspname = $1 AND c.relkind = $2 ORDER BY c.relname",
-    )
-    .bind(schema)
-    .bind(table_type)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| DbError::Query(e.to_string()))?;
+         WHERE n.nspname = $1 AND c.relkind = $2",
+    );
+
+    if filter.is_some() {
+        query_str.push_str(" AND c.relname ILIKE $3");
+    }
+    query_str.push_str(" ORDER BY c.relname");
+
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(query_str))
+        .bind(schema)
+        .bind(table_type);
+
+    if let Some(f) = filter {
+        query = query.bind(format!("%{}%", f));
+    }
+
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
 
     Ok(rows
         .into_iter()
@@ -57,15 +70,15 @@ async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bo
         .collect())
 }
 
-pub async fn list_tables(pool: &PgPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "r", false).await
+pub async fn list_tables(pool: &PgPool, schema: &str, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    list_by_type(pool, schema, "r", false, filter).await
 }
 
-pub async fn list_views(pool: &PgPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "v", true).await
+pub async fn list_views(pool: &PgPool, schema: &str, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    list_by_type(pool, schema, "v", true, filter).await
 }
 
-pub async fn list_functions(pool: &PgPool, schema: &str) -> Result<Vec<FunctionInfo>, DbError> {
+pub async fn list_functions(pool: &PgPool, schema: &str, filter: Option<&str>) -> Result<Vec<FunctionInfo>, DbError> {
     let rows = sqlx::query(
         // prokind filters out aggregates and window functions, which aren't
         // callable in the way the sidebar implies.

@@ -30,16 +30,29 @@ pub async fn list_databases(pool: &MySqlPool) -> Result<Vec<String>, DbError> {
         .collect())
 }
 
-async fn list_by_type(pool: &MySqlPool, schema: &str, table_type: &str, is_view: bool) -> Result<Vec<TableInfo>, DbError> {
-    let rows = sqlx::query(
+async fn list_by_type(pool: &MySqlPool, schema: &str, table_type: &str, is_view: bool, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    let mut query_str = String::from(
         "SELECT TABLE_NAME FROM information_schema.TABLES \
-         WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = ? ORDER BY TABLE_NAME",
-    )
-    .bind(schema)
-    .bind(table_type)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| DbError::Query(e.to_string()))?;
+         WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = ?",
+    );
+
+    if filter.is_some() {
+        query_str.push_str(" AND TABLE_NAME LIKE ?");
+    }
+    query_str.push_str(" ORDER BY TABLE_NAME");
+
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(query_str))
+        .bind(schema)
+        .bind(table_type);
+
+    if let Some(f) = filter {
+        query = query.bind(format!("%{}%", f));
+    }
+
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
 
     Ok(rows
         .into_iter()
@@ -51,16 +64,16 @@ async fn list_by_type(pool: &MySqlPool, schema: &str, table_type: &str, is_view:
         .collect())
 }
 
-pub async fn list_tables(pool: &MySqlPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "BASE TABLE", false).await
+pub async fn list_tables(pool: &MySqlPool, schema: &str, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    list_by_type(pool, schema, "BASE TABLE", false, filter).await
 }
 
-pub async fn list_views(pool: &MySqlPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "VIEW", true).await
+pub async fn list_views(pool: &MySqlPool, schema: &str, filter: Option<&str>) -> Result<Vec<TableInfo>, DbError> {
+    list_by_type(pool, schema, "VIEW", true, filter).await
 }
 
-pub async fn list_functions(pool: &MySqlPool, schema: &str) -> Result<Vec<FunctionInfo>, DbError> {
-    let rows = sqlx::query(
+pub async fn list_functions(pool: &MySqlPool, schema: &str, filter: Option<&str>) -> Result<Vec<FunctionInfo>, DbError> {
+    let mut query_str = String::from(
         "SELECT r.ROUTINE_NAME AS name, r.ROUTINE_TYPE AS kind, \
                 COALESCE(r.DTD_IDENTIFIER, '') AS returns, \
                 COALESCE(( \
@@ -71,13 +84,24 @@ pub async fn list_functions(pool: &MySqlPool, schema: &str) -> Result<Vec<Functi
                     AND p.PARAMETER_MODE IS NOT NULL \
                 ), '') AS arguments \
          FROM information_schema.ROUTINES r \
-         WHERE r.ROUTINE_SCHEMA = ? \
-         ORDER BY r.ROUTINE_NAME",
-    )
-    .bind(schema)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| DbError::Query(e.to_string()))?;
+         WHERE r.ROUTINE_SCHEMA = ?",
+    );
+
+    if filter.is_some() {
+        query_str.push_str(" AND r.ROUTINE_NAME LIKE ?");
+    }
+    query_str.push_str(" ORDER BY r.ROUTINE_NAME");
+
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(query_str)).bind(schema);
+
+    if let Some(f) = filter {
+        query = query.bind(format!("%{}%", f));
+    }
+
+    let rows = query
+        .fetch_all(pool)
+        .await
+        .map_err(|e| DbError::Query(e.to_string()))?;
 
     Ok(rows
         .into_iter()
