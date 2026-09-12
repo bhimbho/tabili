@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { FixedSizeList as List } from "react-window";
 import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDatabases, useFunctions, useSchemas, useTables, useViews } from "../../hooks/useSchema";
+import { useDatabases, useIntrospection, useSchemas } from "../../hooks/useSchema";
 import { commands } from "../../bindings";
 import { useConnectionsStore } from "../../stores/connectionsStore";
 import { useTabsStore } from "../../stores/tabsStore";
@@ -132,6 +132,7 @@ export function ObjectPanel() {
   const { data: schemas } = useSchemas(connected ? connectionId : null);
   const { data: databases } = useDatabases(connected ? connectionId : null);
   const { data: info } = useServerInfo(connected ? connectionId : null);
+  const { data: introspection, isLoading, error } = useIntrospection(connected ? connectionId : null, schema, search);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
@@ -204,13 +205,9 @@ export function ObjectPanel() {
     }
   }
 
-  const { data: tables, isLoading, error } = useTables(connected ? connectionId : null, schema, search);
-  const { data: views } = useViews(connected ? connectionId : null, schema, search);
-  const { data: functions } = useFunctions(connected ? connectionId : null, schema, search);
-
-  const shownTables = tables ?? [];
-  const shownViews = views ?? [];
-  const shownFunctions = functions ?? [];
+  const shownTables = introspection?.tables ?? [];
+  const shownViews = introspection?.views ?? [];
+  const shownFunctions = introspection?.functions ?? [];
 
   function open(name: string) {
     if (!connectionId) return;

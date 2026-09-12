@@ -53,6 +53,7 @@ export const commands = {
 	listTables: (connectionId: string, schema: string | null, filter: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema, filter })),
 	listViews: (connectionId: string, schema: string | null, filter: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema, filter })),
 	listFunctions: (connectionId: string, schema: string | null, filter: string | null) => typedError<FunctionInfo[], AppError>(__TAURI_INVOKE("list_functions", { connectionId, schema, filter })),
+	introspectAll: (connectionId: string, schema: string | null, filter: string | null) => typedError<IntrospectionResult, AppError>(__TAURI_INVOKE("introspect_all", { connectionId, schema, filter })),
 	getColumns: (connectionId: string, schema: string | null, table: string) => typedError<ColumnInfo[], AppError>(__TAURI_INVOKE("get_columns", { connectionId, schema, table })),
 	getIndexes: (connectionId: string, schema: string | null, table: string) => typedError<IndexInfo[], AppError>(__TAURI_INVOKE("get_indexes", { connectionId, schema, table })),
 	getForeignKeys: (connectionId: string, schema: string | null, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, schema, table })),
@@ -315,6 +316,12 @@ export type IndexInfo = {
 	name: string,
 	columns: string[],
 	isUnique: boolean,
+};
+
+export type IntrospectionResult = {
+	tables: TableInfo[],
+	views: TableInfo[],
+	functions: FunctionInfo[],
 };
 
 export type NewConnectionRequest = {

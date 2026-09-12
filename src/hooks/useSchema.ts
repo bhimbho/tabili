@@ -17,10 +17,11 @@ export function useDatabases(connectionId: string | null) {
   });
 }
 
-export function useSchemas(connectionId: string | null) {
+export function useIntrospection(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
-    queryKey: ["schemas", connectionId],
-    queryFn: async () => unwrap(await commands.listSchemas(connectionId as string)),
+    queryKey: ["introspection", connectionId, schema ?? null, filter ?? null],
+    queryFn: async () =>
+      unwrap(await commands.introspectAll(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }
