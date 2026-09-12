@@ -176,6 +176,39 @@ pub async fn get_table_ddl(
         .map_err(AppError::from)
 }
 
+#[derive(serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct IntrospectionResult {
+    pub tables: Vec<TableInfo>,
+    pub views: Vec<TableInfo>,
+    pub functions: Vec<FunctionInfo>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn introspect_all(
+    registry: State<'_, ConnectionRegistry>,
+    connection_id: String,
+    schema: Option<String>,
+    filter: Option<String>,
+) -> Result<IntrospectionResult, AppError> {
+    let driver = resolve(&registry, &connection_id).await?;
+    let schema_ref = SchemaRef { database: None, schema };
+    let filter_ref = filter.as_deref();
+
+    let (tables, views, functions) = tokio::join!(
+        driver.list_tables(&schema_ref, filter_ref),
+        driver.list_views(&schema_ref, filter_ref),
+        driver.list_functions(&schema_ref, filter_ref)
+    );
+
+    Ok(IntrospectionResult {
+        tables: tables.map_err(AppError::from)?,
+        views: views.map_err(AppError::from)?,
+        functions: functions.map_err(AppError::from)?,
+    })
+}
+
 /// Everything the ERD viewer needs in one round-trip: every table (and view)
 /// in the schema, its columns, and the foreign keys that connect them.
 #[derive(serde::Serialize, specta::Type)]
