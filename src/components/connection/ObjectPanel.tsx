@@ -63,7 +63,8 @@ function VirtualizedList({
   icon: Icon,
   onSelect,
   onContextMenu,
-}: VirtualizedListProps) {
+  activeItem,
+}: VirtualizedListProps & { activeItem?: string }) {
   if (items.length === 0) return null;
 
   return (
@@ -76,14 +77,20 @@ function VirtualizedList({
     >
       {({ index, style }: any) => {
         const item = items[index];
+        const isActive = activeItem === item.name;
         return (
           <div style={style}>
             <button
               onClick={() => onSelect && onSelect(item.name)}
               onContextMenu={(e) => onContextMenu && onContextMenu(e, item.name)}
-              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text)"
+              className={clsx(
+                "flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs transition-colors",
+                isActive 
+                  ? "bg-(--active) text-(--active-text)" 
+                  : "text-(--text-muted) hover:bg-(--hover) hover:text-(--text)"
+              )}
             >
-              <Icon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
+              <Icon className={clsx("h-3.5 w-3.5 shrink-0", isActive ? "text-(--active-text)" : "text-(--text-faint)")} />
               <span className="truncate">{item.name}</span>
             </button>
           </div>
@@ -99,6 +106,10 @@ export function ObjectPanel() {
   const activeSchema = useConnectionsStore((s) => s.activeSchema);
   const setActiveSchema = useConnectionsStore((s) => s.setActiveSchema);
   const openTab = useTabsStore((s) => s.openTab);
+  const activeTab = useTabsStore((s) => {
+    const id = s.activeTabId;
+    return s.tabs.find((t) => t.id === id);
+  });
   const closeTabsFor = useTabsStore((s) => s.closeTabsForConnection);
   const queryClient = useQueryClient();
   const dbPickerOpen = useDialogsStore((s) => s.dialog === "db-picker");
@@ -356,6 +367,7 @@ export function ObjectPanel() {
                 items={shownTables}
                 icon={TableIcon}
                 onSelect={open}
+                activeItem={activeTab?.title}
                 onContextMenu={(e: React.MouseEvent, name: string) => {
                   setMenuTable(name);
                   menu.open(e);
@@ -373,8 +385,9 @@ export function ObjectPanel() {
                 <VirtualizedList
                   items={shownFunctions}
                   icon={FunctionIcon}
-                onSelect={undefined} // Functions aren't "opened" like tables in current UI
-                onContextMenu={undefined}
+                  activeItem={activeTab?.title}
+                  onSelect={undefined} // Functions aren't "opened" like tables in current UI
+                  onContextMenu={undefined}
                 />
               </Group>
             )}
@@ -385,6 +398,7 @@ export function ObjectPanel() {
                   items={shownViews}
                   icon={ViewIcon}
                   onSelect={open}
+                  activeItem={activeTab?.title}
                   onContextMenu={(e: React.MouseEvent, name: string) => {
                     setMenuTable(name);
                     menu.open(e);

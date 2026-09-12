@@ -32,6 +32,7 @@ const PAD = 40;
 
 export function ErdView({ connectionId, schema }: ErdViewProps) {
   const themeMode = useThemeStore((s) => s.mode);
+  const [isExporting, setIsExporting] = useState<"png" | "pdf" | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["schema-graph", connectionId, schema ?? null],
     queryFn: async () =>
@@ -101,11 +102,12 @@ export function ErdView({ connectionId, schema }: ErdViewProps) {
     clone.setAttribute("width", String(width * scale));
     clone.setAttribute("height", String(height * scale));
     const xml = new XMLSerializer().serializeToString(clone);
-    const svg64 = btoa(unescape(encodeURIComponent(xml)));
-    const url = `data:image/svg+xml;base64,${svg64}`;
+    const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
+        URL.revokeObjectURL(url);
         const canvas = document.createElement("canvas");
         canvas.width = width * scale;
         canvas.height = height * scale;
@@ -116,28 +118,49 @@ export function ErdView({ connectionId, schema }: ErdViewProps) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL("image/png"));
       };
-      img.onerror = () => reject(new Error("could not render svg"));
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("could not render svg"));
+      };
       img.src = url;
     });
   }
 
   async function exportPng() {
-    const url = await renderPng(2);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "erd.png";
-    a.click();
+    setIsExporting("png");
+    try {
+      const url = await renderPng(2);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "erd.png";
+      a.click();
+    } catch (e) {
+      console.error("Export PNG failed:", e);
+      alert("Failed to export PNG: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setIsExporting(null);
+    }
   }
 
   async function exportPdf() {
-    const url = await renderPng(2);
-    const img = new Image();
-    img.onload = () => {
+    setIsExporting("pdf");
+    try {
+      const url = await renderPng(2);
+      const img = new Image();
+      img.src = url;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
       const pdf = new jsPDF({ orientation: width > height ? "landscape" : "portrait", unit: "px", format: [width, height] });
       pdf.addImage(url, "PNG", 0, 0, width, height);
       pdf.save("erd.pdf");
-    };
-    img.src = url;
+    } catch (e) {
+      console.error("Export PDF failed:", e);
+      alert("Failed to export PDF: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setIsExporting(null);
+    }
   }
 
   return (
@@ -150,15 +173,17 @@ export function ErdView({ connectionId, schema }: ErdViewProps) {
         <div className="ml-auto flex items-center gap-1.5">
           <button
             onClick={() => void exportPng()}
-            className="rounded-md bg-(--active) px-2.5 py-1 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover)"
+            disabled={isExporting !== null}
+            className="rounded-md bg-(--active) px-2.5 py-1 text-xs font-medium text-(--text) transition-colors hover:bg-(--hover) disabled:opacity-50"
           >
-            Export PNG
+            {isExporting === "png" ? "Exporting..." : "Export PNG"}
           </button>
           <button
             onClick={() => void exportPdf()}
-            className="rounded-md bg-(--accent) px-2.5 py-1 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90"
+            disabled={isExporting !== null}
+            className="rounded-md bg-(--accent) px-2.5 py-1 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--accent)/90 disabled:opacity-50"
           >
-            Export PDF
+            {isExporting === "pdf" ? "Exporting..." : "Export PDF"}
           </button>
         </div>
       </div>

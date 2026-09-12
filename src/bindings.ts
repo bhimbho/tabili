@@ -50,9 +50,9 @@ export const commands = {
 	 */
 	refreshMenu: () => typedError<null, AppError>(__TAURI_INVOKE("refresh_menu")),
 	listSchemas: (connectionId: string) => typedError<SchemaInfo[], AppError>(__TAURI_INVOKE("list_schemas", { connectionId })),
-	listTables: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema })),
-	listViews: (connectionId: string, schema: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema })),
-	listFunctions: (connectionId: string, schema: string | null) => typedError<FunctionInfo[], AppError>(__TAURI_INVOKE("list_functions", { connectionId, schema })),
+	listTables: (connectionId: string, schema: string | null, filter: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_tables", { connectionId, schema, filter })),
+	listViews: (connectionId: string, schema: string | null, filter: string | null) => typedError<TableInfo[], AppError>(__TAURI_INVOKE("list_views", { connectionId, schema, filter })),
+	listFunctions: (connectionId: string, schema: string | null, filter: string | null) => typedError<FunctionInfo[], AppError>(__TAURI_INVOKE("list_functions", { connectionId, schema, filter })),
 	getColumns: (connectionId: string, schema: string | null, table: string) => typedError<ColumnInfo[], AppError>(__TAURI_INVOKE("get_columns", { connectionId, schema, table })),
 	getIndexes: (connectionId: string, schema: string | null, table: string) => typedError<IndexInfo[], AppError>(__TAURI_INVOKE("get_indexes", { connectionId, schema, table })),
 	getForeignKeys: (connectionId: string, schema: string | null, table: string) => typedError<ForeignKeyInfo[], AppError>(__TAURI_INVOKE("get_foreign_keys", { connectionId, schema, table })),
