@@ -145,8 +145,8 @@ export function ExportDialog({ mode, onClose }: ExportDialogProps) {
       const items = new Map<string, ItemState>();
       for (const s of effectiveSchemas) {
         const [tResult, vResult] = await Promise.all([
-          commands.listTables(connectionId as string, s || null),
-          commands.listViews(connectionId as string, s || null),
+           commands.listTables(connectionId as string, s || null, null),
+           commands.listViews(connectionId as string, s || null, null),
         ]);
         if (cancelled) return;
         const tables = tResult.status === "ok" ? tResult.data : [];
