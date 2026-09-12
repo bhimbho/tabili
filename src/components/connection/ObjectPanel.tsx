@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { FixedSizeList as List } from "react-window";
 import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDatabases, useFunctions, useSchemas, useTables, useViews } from "../../hooks/useSchema";
@@ -47,6 +48,42 @@ function Group({
       </button>
       {open && <div>{children}</div>}
     </div>
+  );
+}
+
+function VirtualizedList({
+  items,
+  icon: Icon,
+  onSelect,
+  onContextMenu,
+  isView = false,
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <List
+      height={300}
+      itemCount={items.length}
+      itemSize={28}
+      width="100%"
+      className="scrollbar-thin"
+    >
+      {({ index, style }) => {
+        const item = items[index];
+        return (
+          <div style={style}>
+            <button
+              onClick={() => onSelect && onSelect(item.name)}
+              onContextMenu={(e) => onContextMenu && onContextMenu(e, item.name)}
+              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text)"
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
+              <span className="truncate">{item.name}</span>
+            </button>
+          </div>
+        );
+      }}
+    </List>
   );
 }
 
@@ -314,20 +351,15 @@ export function ObjectPanel() {
         {tab === "items" && connected && !isLoading && !error && (
           <>
             <Group title="Tables" count={shownTables.length}>
-              {shownTables.map((t) => (
-                <button
-                  key={t.name}
-                  onClick={() => open(t.name)}
-                  onContextMenu={(e) => {
-                    setMenuTable(t.name);
-                    menu.open(e);
-                  }}
-                  className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text)"
-                >
-                  <TableIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
-                  <span className="truncate">{t.name}</span>
-                </button>
-              ))}
+              <VirtualizedList
+                items={shownTables}
+                icon={TableIcon}
+                onSelect={open}
+                onContextMenu={(e, name) => {
+                  setMenuTable(name);
+                  menu.open(e);
+                }}
+              />
               {shownTables.length === 0 && (
                 <p className="px-2 py-1 pl-5 text-xs text-(--text-faint)">
                   {needle ? "No matches." : "No tables."}
@@ -355,20 +387,21 @@ export function ObjectPanel() {
 
             {shownViews.length > 0 && (
               <Group title="Views" count={shownViews.length}>
-                {shownViews.map((v) => (
-                  <button
-                    key={v.name}
-                    onClick={() => open(v.name)}
-                    onContextMenu={(e) => {
-                      setMenuTable(v.name);
-                      menu.open(e);
-                    }}
-                    className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 pl-5 text-left text-xs text-(--text-muted) transition-colors hover:bg-(--hover) hover:text-(--text)"
-                  >
-                    <ViewIcon className="h-3.5 w-3.5 shrink-0 text-(--text-faint)" />
-                    <span className="truncate">{v.name}</span>
-                  </button>
-                ))}
+                <VirtualizedList
+                  items={shownViews}
+                  icon={ViewIcon}
+                  onSelect={open}
+                  onContextMenu={(e, name) => {
+                    setMenuTable(name);
+                    menu.open(e);
+                  }}
+                  isView
+                />
+                {shownViews.length === 0 && (
+                  <p className="px-2 py-1 pl-5 text-xs text-(--text-faint)">
+                    {needle ? "No matches." : "No views."}
+                  </p>
+                )}
               </Group>
             )}
           </>

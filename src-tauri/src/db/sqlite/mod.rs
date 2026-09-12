@@ -40,6 +40,10 @@ impl SqliteDriver {
             .ok_or_else(|| DbError::Connection("sqlite connection requires file_path".into()))?;
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(config.max_connections.max(1))
+            .acquire_timeout(std::time::Duration::from_secs(10))
+            .idle_timeout(std::time::Duration::from_secs(300))
+            .max_lifetime(std::time::Duration::from_secs(1800))
+            .test_before_acquire(true)
             .connect(&format!("sqlite://{path}"))
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;

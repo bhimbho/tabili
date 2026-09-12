@@ -361,6 +361,21 @@ pub async fn connect_saved(
     app_store: State<'_, AppStore>,
     id: String,
 ) -> Result<OpenedConnection, AppError> {
+    if let Some(driver) = registry.get(&id).await {
+        let record = app_store
+            .get(&id)
+            .await
+            .map_err(AppError::from)?
+            .ok_or_else(|| AppError::from(DbError::Connection("saved connection not found".into())))?;
+
+        return Ok(OpenedConnection {
+            connection_id: id,
+            dialect: record.dialect,
+            display_name: record.name,
+            color: record.color,
+        });
+    }
+
     let record = app_store
         .get(&id)
         .await

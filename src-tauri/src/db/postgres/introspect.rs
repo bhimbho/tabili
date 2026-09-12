@@ -23,10 +23,10 @@ pub async fn list_databases(pool: &PgPool) -> Result<Vec<String>, DbError> {
 
 pub async fn list_schemas(pool: &PgPool) -> Result<Vec<String>, DbError> {
     let rows = sqlx::query(
-        "SELECT schema_name FROM information_schema.schemata \
-         WHERE schema_name NOT IN ('pg_catalog', 'information_schema') \
-         AND schema_name NOT LIKE 'pg_toast%' AND schema_name NOT LIKE 'pg_temp_%' \
-         ORDER BY schema_name",
+        "SELECT nspname AS schema_name FROM pg_namespace \
+         WHERE nspname NOT IN ('pg_catalog', 'information_schema') \
+         AND nspname NOT LIKE 'pg_toast%' AND nspname NOT LIKE 'pg_temp_%' \
+         ORDER BY nspname",
     )
     .fetch_all(pool)
     .await
@@ -36,8 +36,10 @@ pub async fn list_schemas(pool: &PgPool) -> Result<Vec<String>, DbError> {
 
 async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bool) -> Result<Vec<TableInfo>, DbError> {
     let rows = sqlx::query(
-        "SELECT table_name FROM information_schema.tables \
-         WHERE table_schema = $1 AND table_type = $2 ORDER BY table_name",
+        "SELECT c.relname AS table_name \
+         FROM pg_class c \
+         JOIN pg_namespace n ON n.oid = c.relnamespace \
+         WHERE n.nspname = $1 AND c.relkind = $2 ORDER BY c.relname",
     )
     .bind(schema)
     .bind(table_type)
@@ -56,11 +58,11 @@ async fn list_by_type(pool: &PgPool, schema: &str, table_type: &str, is_view: bo
 }
 
 pub async fn list_tables(pool: &PgPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "BASE TABLE", false).await
+    list_by_type(pool, schema, "r", false).await
 }
 
 pub async fn list_views(pool: &PgPool, schema: &str) -> Result<Vec<TableInfo>, DbError> {
-    list_by_type(pool, schema, "VIEW", true).await
+    list_by_type(pool, schema, "v", true).await
 }
 
 pub async fn list_functions(pool: &PgPool, schema: &str) -> Result<Vec<FunctionInfo>, DbError> {
