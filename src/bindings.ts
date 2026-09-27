@@ -73,7 +73,7 @@ export const commands = {
 	insertRow: (connectionId: string, schema: string | null, table: string, values: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("insert_row", { connectionId, schema, table, values })),
 	updateRow: (connectionId: string, schema: string | null, table: string, pk: { [key in string]: DbValue }, changes: { [key in string]: DbValue }) => typedError<string, AppError>(__TAURI_INVOKE("update_row", { connectionId, schema, table, pk, changes })),
 	deleteRows: (connectionId: string, schema: string | null, table: string, pks: { [key in string]: DbValue }[]) => typedError<string[], AppError>(__TAURI_INVOKE("delete_rows", { connectionId, schema, table, pks })),
-	runQuery: (connectionId: string, sql: string) => typedError<QueryHandle, AppError>(__TAURI_INVOKE("run_query", { connectionId, sql })),
+	runQuery: (connectionId: string, sql: string, executionId: string) => typedError<QueryHandle, AppError>(__TAURI_INVOKE("run_query", { connectionId, sql, executionId })),
 	fetchMore: (connectionId: string, executionId: string, n: number) => typedError<RowPage, AppError>(__TAURI_INVOKE("fetch_more", { connectionId, executionId, n })),
 	cancelQuery: (connectionId: string, executionId: string) => typedError<null, AppError>(__TAURI_INVOKE("cancel_query", { connectionId, executionId })),
 	/**
@@ -129,6 +129,15 @@ export const commands = {
 	userGrants: (connectionId: string, name: string, host: string | null) => typedError<DbGrant[], AppError>(__TAURI_INVOKE("user_grants", { connectionId, name, host })),
 	grantPrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("grant_privilege", { connectionId, name, host, privilege, schema, table })),
 	revokePrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("revoke_privilege", { connectionId, name, host, privilege, schema, table })),
+	/**
+	 *  Opens (or focuses) a window dedicated to one connection.
+	 * 
+	 *  Each webview runs its own copy of the frontend, so the two windows share no
+	 *  store state: a filter, search or pending edit in one cannot reach the other.
+	 *  The connection pool lives in Rust and is shared, so the new window reuses the
+	 *  connection that is already open instead of dialling again.
+	 */
+	openConnectionWindow: (connectionId: string, title: string) => typedError<string, AppError>(__TAURI_INVOKE("open_connection_window", { connectionId, title })),
 };
 
 /* Types */

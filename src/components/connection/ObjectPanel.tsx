@@ -17,6 +17,7 @@ import { ChevronIcon, DatabaseIcon, FunctionIcon, TableIcon, ViewIcon } from "..
 import { HistoryPanel, QueriesPanel } from "./HistoryPanel";
 import { TableActionsDialog } from "./TableActionsDialog";
 import { CreateTableDialog } from "../schema-editor/CreateTableDialog";
+import { useDebounced } from "../../hooks/useDebounced";
 
 type PanelTab = "items" | "queries" | "history";
 
@@ -132,7 +133,14 @@ export function ObjectPanel() {
   const { data: schemas } = useSchemas(connected ? connectionId : null);
   const { data: databases } = useDatabases(connected ? connectionId : null);
   const { data: info } = useServerInfo(connected ? connectionId : null);
-  const { data: introspection, isLoading, error } = useIntrospection(connected ? connectionId : null, schema, search);
+  // The list is fetched from the server, so it follows the typing rather than
+  // each keystroke; the input itself stays on `search` and never lags.
+  const debouncedSearch = useDebounced(search);
+  const { data: introspection, isLoading, error } = useIntrospection(
+    connected ? connectionId : null,
+    schema,
+    debouncedSearch,
+  );
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
@@ -346,7 +354,7 @@ export function ObjectPanel() {
         </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1">
-        {tab === "history" && <HistoryPanel search={search} />}
+        {tab === "history" && <HistoryPanel search={search} connectionId={connectionId} />}
         {tab === "queries" && <QueriesPanel search={search} />}
 
         {tab === "items" && !connected && (

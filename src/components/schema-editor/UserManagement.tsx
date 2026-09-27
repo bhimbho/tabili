@@ -68,7 +68,7 @@ export function UserManagement({ connectionId }: UserManagementProps) {
       setCreating(false);
     },
     onError: (e: unknown) =>
-      log({ sql: "Create User", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
+      log({ connectionId, sql: "Create User", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
   });
 
   const dropUser = useMutation({
@@ -79,7 +79,7 @@ export function UserManagement({ connectionId }: UserManagementProps) {
       setDeleting(null);
     },
     onError: (e: unknown) =>
-      log({ sql: "Drop User", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
+      log({ connectionId, sql: "Drop User", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
   });
 
   const grant = useMutation({
@@ -87,7 +87,7 @@ export function UserManagement({ connectionId }: UserManagementProps) {
       unwrap(await commands.grantPrivilege(connectionId, selectedUser!.name, selectedUser!.host, g.privilege, g.schema, g.table)),
     onSuccess: refreshGrants,
     onError: (e: unknown) =>
-      log({ sql: "Grant", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
+      log({ connectionId, sql: "Grant", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
   });
 
   const revoke = useMutation({
@@ -95,7 +95,7 @@ export function UserManagement({ connectionId }: UserManagementProps) {
       unwrap(await commands.revokePrivilege(connectionId, selectedUser!.name, selectedUser!.host, g.privilege, g.schema, g.table)),
     onSuccess: refreshGrants,
     onError: (e: unknown) =>
-      log({ sql: "Revoke", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
+      log({ connectionId, sql: "Revoke", success: false, error: friendlyError(e instanceof Error ? e.message : String(e)), durationMs: 0 }),
   });
 
   return (

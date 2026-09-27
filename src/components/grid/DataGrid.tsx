@@ -10,7 +10,7 @@ import DataEditor, {
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 import type { ColumnInfo, DbValue } from "../../bindings";
-import { useChangesStore, pkKeyOf } from "../../stores/changesStore";
+import { useChangesStore, belongsTo, pkKeyOf, rowKeyOf } from "../../stores/changesStore";
 import { ContextMenu, type MenuEntry, type MenuPosition } from "../ui/ContextMenu";
 import type { FkMap } from "../../stores/detailsStore";
 import { useThemeStore } from "../../stores/themeStore";
@@ -139,6 +139,7 @@ export function DataGrid({
   const edits = useChangesStore((s) => s.edits);
   const inserts = useChangesStore((s) => s.inserts);
   const deletes = useChangesStore((s) => s.deletes);
+  const isDeleted = useChangesStore((s) => s.isDeleted);
   const setEdit = useChangesStore((s) => s.setEdit);
   const setInsertValue = useChangesStore((s) => s.setInsertValue);
   const toggleDelete = useChangesStore((s) => s.toggleDelete);
@@ -148,9 +149,14 @@ export function DataGrid({
   const pkColumns = useMemo(() => columnInfos.filter((c) => c.isPrimaryKey).map((c) => c.name), [columnInfos]);
   const hasPk = pkColumns.length > 0;
 
+  const rowContext = useMemo(
+    () => ({ connectionId, schema: schema ?? null, table }),
+    [connectionId, schema, table],
+  );
+
   const insertRows = useMemo(
-    () => Array.from(inserts.values()).filter((i) => i.connectionId === connectionId && i.table === table),
-    [inserts, connectionId, table],
+    () => Array.from(inserts.values()).filter((i) => belongsTo(i, rowContext)),
+    [inserts, rowContext],
   );
 
   const extractPk = useCallback(
@@ -219,9 +225,12 @@ export function DataGrid({
       const value = row?.[columnName];
       const pk = hasPk ? extractPk(row) : {};
       const pkKey = hasPk ? pkKeyOf(pk) : "";
-      const editKey = `${connectionId}:${table}:${pkKey}:${columnName}`;
+      const editKey = `${rowKeyOf(rowContext, pkKey)}:${columnName}`;
       const edit = hasPk ? edits.get(editKey) : undefined;
-      const deleted = hasPk && Array.from(deletes.values()).some((d) => d.pkKey === pkKey);
+      // Matched on the whole row identity, not the primary key alone: an id of 1
+      // staged for deletion in one table greyed out row 1 of every other table,
+      // on every connection.
+      const deleted = hasPk && isDeleted(rowContext, pk);
 
       const shown = edit ? edit.newValue : value;
       const display = displayValue(shown);
@@ -239,7 +248,7 @@ export function DataGrid({
         cursor: isLinkable ? "pointer" : undefined,
       };
     },
-    [ordered, rows, insertRows, hasPk, extractPk, edits, deletes, connectionId, table, foreignKeys, cellTints],
+    [ordered, rows, insertRows, hasPk, extractPk, edits, deletes, isDeleted, rowContext, connectionId, schema, table, foreignKeys, cellTints],
   );
 
   const onCellEdited = useCallback(

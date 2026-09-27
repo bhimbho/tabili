@@ -27,7 +27,7 @@ async fn connects_lists_tables_and_fetches_rows() {
         .expect("connect");
 
     let tables = driver
-        .list_tables(&SchemaRef { database: None, schema: None })
+        .list_tables(&SchemaRef { database: None, schema: None }, None)
         .await
         .expect("list_tables");
     let table_names: Vec<_> = tables.iter().map(|t| t.name.as_str()).collect();

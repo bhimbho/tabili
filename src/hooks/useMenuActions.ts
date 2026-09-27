@@ -50,9 +50,10 @@ function selectedRowPk(): {
   };
 }
 
-async function commit(queryClient: QueryClient) {
-  if (useChangesStore.getState().count() === 0) return;
-  const errors = await commitChanges(queryClient);
+/** Commits the connection in view only — never another window's or tab's server. */
+async function commit(queryClient: QueryClient, connectionId: string | null) {
+  if (useChangesStore.getState().count(connectionId ?? undefined) === 0) return;
+  const errors = await commitChanges(queryClient, connectionId ?? undefined);
   if (errors.length > 0) {
     // commitChanges already logged the detail; surface the console on failure.
     useConsoleStore.getState().setOpen(true);
@@ -139,10 +140,10 @@ async function dispatch(action: string, queryClient: QueryClient) {
 
     // --- Edit ---
     case "edit.commit":
-      await commit(queryClient);
+      await commit(queryClient, activeId);
       return;
     case "edit.discard":
-      useChangesStore.getState().discardAll();
+      useChangesStore.getState().discardAll(activeId ?? undefined);
       return;
     case "edit.preview":
       dialogs.open("preview-changes");
@@ -213,11 +214,18 @@ async function dispatch(action: string, queryClient: QueryClient) {
     case "connection.open-database":
       dialogs.open("db-picker");
       return;
+    // Both guard on the connection in view: the editor bridge belongs to whichever
+    // query tab registered last, and running it from another connection's screen
+    // sent the statement to the wrong server.
     case "connection.run-query":
-      useSqlEditorStore.getState().runCurrent();
+      if (useSqlEditorStore.getState().connectionId === activeId) {
+        useSqlEditorStore.getState().runCurrent();
+      }
       return;
     case "connection.run-all":
-      useSqlEditorStore.getState().runAll();
+      if (useSqlEditorStore.getState().connectionId === activeId) {
+        useSqlEditorStore.getState().runAll();
+      }
       return;
     case "connection.reload":
       if (activeId) reloadConnection(queryClient, activeId);

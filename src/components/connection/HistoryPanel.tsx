@@ -10,14 +10,27 @@ function when(ts: string) {
   return Number.isNaN(d.getTime()) ? ts : d.toLocaleString(undefined, { hour12: false });
 }
 
-export function HistoryPanel({ search }: { search: string }) {
+export function HistoryPanel({
+  search,
+  connectionId,
+}: {
+  search: string;
+  /** Only this connection's statements are listed; the log itself is app-wide. */
+  connectionId: string | null;
+}) {
   const { data: entries, isLoading } = useStatementLog();
   const queryClient = useQueryClient();
   const menu = useContextMenu();
   const [target, setTarget] = useState<string | null>(null);
 
   const needle = search.trim().toLowerCase();
-  const shown = (entries ?? []).filter((e) => !needle || e.sql.toLowerCase().includes(needle));
+  const shown = (entries ?? []).filter(
+    (e) =>
+      // The stored log spans every connection, so history opened on one server
+      // used to list statements that were run against another.
+      (!connectionId || e.connectionId === connectionId) &&
+      (!needle || e.sql.toLowerCase().includes(needle)),
+  );
 
   const items: MenuEntry[] = [
     { label: "Copy SQL", onSelect: () => target && navigator.clipboard.writeText(target) },
@@ -32,7 +45,7 @@ export function HistoryPanel({ search }: { search: string }) {
     },
     null,
     {
-      label: "Clear history",
+      label: "Clear history (all connections)",
       danger: true,
       onSelect: async () => {
         await commands.clearStatementLog();
@@ -45,7 +58,7 @@ export function HistoryPanel({ search }: { search: string }) {
   if (shown.length === 0) {
     return (
       <p className="px-3 py-2 text-xs text-(--text-faint)">
-        {needle ? "No matches." : "Nothing run yet."}
+        {needle ? "No matches." : "Nothing run on this connection yet."}
       </p>
     );
   }

@@ -6,6 +6,7 @@ pub mod rows;
 pub mod schema;
 pub mod transfer;
 pub mod users;
+pub mod windows;
 
 use serde::Serialize;
 use specta::Type;

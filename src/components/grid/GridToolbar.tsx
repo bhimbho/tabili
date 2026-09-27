@@ -2,6 +2,8 @@ import { useChangesStore } from "../../stores/changesStore";
 import { PlusIcon } from "../ui/icons";
 
 interface GridToolbarProps {
+  /** Whose pending changes the Review button counts. */
+  connectionId: string;
   tab: string;
   hasPk: boolean;
   /** Non-null when schema introspection failed — the real reason editing is off. */
@@ -12,6 +14,7 @@ interface GridToolbarProps {
 }
 
 export function GridToolbar({
+  connectionId,
   tab,
   hasPk,
   columnsError,
@@ -19,7 +22,7 @@ export function GridToolbar({
   onAddColumn,
   onReviewChanges,
 }: GridToolbarProps) {
-  const count = useChangesStore((s) => s.count());
+  const count = useChangesStore((s) => s.count(connectionId));
   const isData = tab === "data";
 
   return (

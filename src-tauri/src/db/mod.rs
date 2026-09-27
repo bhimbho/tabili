@@ -71,8 +71,12 @@ pub trait DatabaseDriver: Send + Sync {
 
     // --- data access ---
     async fn fetch_rows(&self, table: &TableRef, opts: FetchOptions) -> Result<RowPage, DbError>;
-    async fn run_query(&self, sql: &str) -> Result<QueryHandle, DbError>;
+    /// `execution_id` is chosen by the caller *before* the statement runs, so
+    /// `cancel` has something to name while it is still in flight.
+    async fn run_query(&self, sql: &str, execution_id: &str) -> Result<QueryHandle, DbError>;
     async fn fetch_more(&self, handle: &QueryExecutionId, n: u32) -> Result<RowPage, DbError>;
+    /// Stops an in-flight statement server-side. Cancelling one that already
+    /// finished is not an error.
     async fn cancel(&self, handle: &QueryExecutionId) -> Result<(), DbError>;
 
     // --- row mutation (requires a resolved primary key) ---
@@ -176,4 +180,81 @@ pub async fn connect_driver(
 pub fn split_page<T: Clone>(rows: &[T], page_size: usize) -> (Vec<T>, bool) {
     let has_more = rows.len() > page_size;
     (rows.iter().take(page_size).cloned().collect(), has_more)
+}
+
+/// A fully-materialized result set held for a single query execution, so the
+/// frontend can page through it with `fetch_more` without re-running the SQL.
+pub struct CachedResult {
+    pub columns: Vec<String>,
+    pub rows: Vec<HashMap<String, DbValue>>,
+    pub sql: String,
+}
+
+/// How many result sets one connection keeps around for paging.
+///
+/// Each entry holds an entire result set in memory, so this cannot grow without
+/// bound: before, every query ever run stayed resident until the connection was
+/// closed. Paging only ever touches the result the user is currently looking
+/// at, and a handful of editor tabs is the realistic ceiling for how many of
+/// those there are at once.
+const MAX_CACHED_RESULTS: usize = 8;
+
+struct QueryCacheInner {
+    entries: HashMap<String, CachedResult>,
+    /// Insertion order, oldest first, for evicting past the cap.
+    order: std::collections::VecDeque<String>,
+}
+
+/// Bounded store of recent query results, shared by every driver.
+pub struct QueryCache {
+    inner: std::sync::Mutex<QueryCacheInner>,
+}
+
+impl Default for QueryCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl QueryCache {
+    pub fn new() -> Self {
+        Self {
+            inner: std::sync::Mutex::new(QueryCacheInner {
+                entries: HashMap::new(),
+                order: std::collections::VecDeque::new(),
+            }),
+        }
+    }
+
+    pub fn insert(&self, execution_id: String, result: CachedResult) {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.entries.insert(execution_id.clone(), result).is_none() {
+            inner.order.push_back(execution_id);
+        }
+        while inner.order.len() > MAX_CACHED_RESULTS {
+            if let Some(oldest) = inner.order.pop_front() {
+                inner.entries.remove(&oldest);
+            }
+        }
+    }
+
+    /// Returns rows `[offset, offset + page_size)` of a cached result.
+    pub fn page(
+        &self,
+        execution_id: &str,
+        offset: usize,
+        page_size: usize,
+    ) -> Result<RowPage, DbError> {
+        let inner = self.inner.lock().unwrap();
+        let cached = inner.entries.get(execution_id).ok_or_else(|| {
+            DbError::Query("this result set is no longer held; re-run the query".into())
+        })?;
+        let rows: Vec<_> = cached.rows.iter().skip(offset).take(page_size).cloned().collect();
+        Ok(RowPage {
+            columns: cached.columns.clone(),
+            has_more: offset + rows.len() < cached.rows.len(),
+            rows,
+            sql: cached.sql.clone(),
+        })
+    }
 }

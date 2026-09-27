@@ -36,6 +36,7 @@ export function useTableRows(
       );
       if (result.status === "error") {
         useConsoleStore.getState().log({
+          connectionId,
           sql: `SELECT * FROM ${table}`,
           success: false,
           error: result.error.message,
@@ -44,7 +45,7 @@ export function useTableRows(
       }
       // The backend reports the statement it actually sent, so the console shows
       // the real query rather than a reconstruction.
-      useConsoleStore.getState().log({ sql: result.data.sql, success: true });
+      useConsoleStore.getState().log({ connectionId, sql: result.data.sql, success: true });
       return result.data;
     },
     enabled: !!connectionId && !!table,

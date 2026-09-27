@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::db::{
-    filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
+    filter, split_page, CachedResult, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
     DbError, DbValue, FetchOptions, ForeignKeyInfo, FunctionInfo, IndexInfo, QueryExecutionId,
-    QueryHandle, RowPage, SchemaInfo, SchemaRef, ServerInfo, SqlDialect, TableDiff, TableInfo,
+    QueryCache, QueryHandle, RowPage, SchemaInfo, SchemaRef, ServerInfo, SqlDialect, TableDiff, TableInfo,
     TableRef, TableSpec, TriggerInfo, DbUser, DbGrant,
 };
 use introspect::quote_ident;
@@ -20,18 +20,15 @@ use introspect::quote_ident;
 /// via `fetch_more` against an in-memory buffer.
 const QUERY_PAGE_SIZE: usize = 500;
 
-struct CachedResult {
-    columns: Vec<String>,
-    rows: Vec<HashMap<String, DbValue>>,
-    sql: String,
-}
-
 pub struct MySqlDriver {
     pool: sqlx::MySqlPool,
     /// The database selected at connect time — MySQL has no schema distinct
     /// from database, so this doubles as the default schema.
     default_database: Option<String>,
-    query_cache: Mutex<HashMap<String, CachedResult>>,
+    query_cache: QueryCache,
+    /// Server connection id per in-flight execution, so `cancel` can KILL the
+    /// statement from a second connection.
+    running: Mutex<HashMap<String, u64>>,
 }
 
 impl MySqlDriver {
@@ -85,7 +82,8 @@ impl MySqlDriver {
         Ok(Self {
             pool,
             default_database: config.database.clone(),
-            query_cache: Mutex::new(HashMap::new()),
+            query_cache: QueryCache::new(),
+            running: Mutex::new(HashMap::new()),
         })
     }
 
@@ -239,11 +237,38 @@ impl DatabaseDriver for MySqlDriver {
         Ok(RowPage { columns, rows: out_rows, has_more, sql: query })
     }
 
-    async fn run_query(&self, sql: &str) -> Result<QueryHandle, DbError> {
-        let rows = sqlx::query(sqlx::AssertSqlSafe(sql.to_string()))
-            .fetch_all(&self.pool)
+    async fn run_query(&self, sql: &str, execution_id: &str) -> Result<QueryHandle, DbError> {
+        // Held explicitly so the server's connection id is known while the
+        // statement runs; `cancel` KILLs that id from another connection.
+        let mut conn = self
+            .pool
+            .acquire()
+            .await
+            .map_err(|e| DbError::Connection(e.to_string()))?;
+        let connection_id: u64 = sqlx::query_scalar("SELECT CONNECTION_ID()")
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| DbError::Query(e.to_string()))?;
+        self.running
+            .lock()
+            .unwrap()
+            .insert(execution_id.to_string(), connection_id);
+
+        let result = sqlx::query(sqlx::AssertSqlSafe(sql.to_string()))
+            .fetch_all(&mut *conn)
+            .await;
+        self.running.lock().unwrap().remove(execution_id);
+        drop(conn);
+
+        let rows = result.map_err(|e| {
+            // SQLSTATE 70100 is ER_QUERY_INTERRUPTED (1317), what KILL QUERY
+            // produces. The user asked for that, so it is not a failure.
+            if e.as_database_error().and_then(|d| d.code()).as_deref() == Some("70100") {
+                DbError::Cancelled
+            } else {
+                DbError::Query(e.to_string())
+            }
+        })?;
 
         let mut columns: Vec<String> = Vec::new();
         let mut all_rows = Vec::new();
@@ -258,9 +283,7 @@ impl DatabaseDriver for MySqlDriver {
             all_rows.push(map);
         }
 
-        let execution_id = uuid::Uuid::new_v4().to_string();
         let cached = CachedResult { columns, rows: all_rows, sql: sql.to_string() };
-
         let (first_page_rows, has_more) = split_page(&cached.rows, QUERY_PAGE_SIZE);
         let first_page = RowPage {
             columns: cached.columns.clone(),
@@ -269,42 +292,27 @@ impl DatabaseDriver for MySqlDriver {
             sql: sql.to_string(),
         };
 
-        self.query_cache
-            .lock()
-            .unwrap()
-            .insert(execution_id.clone(), cached);
+        self.query_cache.insert(execution_id.to_string(), cached);
 
         Ok(QueryHandle {
-            execution_id: QueryExecutionId(execution_id),
+            execution_id: QueryExecutionId(execution_id.to_string()),
             first_page,
         })
     }
 
     async fn fetch_more(&self, handle: &QueryExecutionId, n: u32) -> Result<RowPage, DbError> {
-        let mut cache = self.query_cache.lock().unwrap();
-        let cached = cache
-            .get_mut(&handle.0)
-            .ok_or_else(|| DbError::Query("unknown or expired query execution".into()))?;
-
-        let offset = n as usize;
-        let next = cached
-            .rows
-            .iter()
-            .skip(offset)
-            .take(QUERY_PAGE_SIZE)
-            .cloned()
-            .collect::<Vec<_>>();
-        let has_more = offset + next.len() < cached.rows.len();
-
-        Ok(RowPage {
-            columns: cached.columns.clone(),
-            rows: next,
-            has_more,
-            sql: cached.sql.clone(),
-        })
+        self.query_cache.page(&handle.0, n as usize, QUERY_PAGE_SIZE)
     }
 
-    async fn cancel(&self, _handle: &QueryExecutionId) -> Result<(), DbError> {
+    async fn cancel(&self, handle: &QueryExecutionId) -> Result<(), DbError> {
+        let id = self.running.lock().unwrap().get(&handle.0).copied();
+        let Some(id) = id else { return Ok(()) };
+        // KILL takes no placeholders; the id came from the server as an integer,
+        // so formatting it in carries nothing to inject.
+        sqlx::query(sqlx::AssertSqlSafe(format!("KILL QUERY {id}")))
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Query(e.to_string()))?;
         Ok(())
     }
 

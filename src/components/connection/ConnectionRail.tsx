@@ -7,6 +7,7 @@ import { useTabsStore } from "../../stores/tabsStore";
 import { ContextMenu, useContextMenu, type MenuEntry } from "../ui/ContextMenu";
 import { useDialogsStore } from "../../stores/dialogsStore";
 import { DragRegion } from "../ui/DragRegion";
+import { WINDOW_CONNECTION_ID, moveConnectionToNewWindow } from "../../lib/connectionWindow";
 import { DatabaseIcon, PlusIcon } from "../ui/icons";
 
 interface ConnectionRailProps {
@@ -57,6 +58,13 @@ function RailItem({ connection }: { connection: SavedConnection }) {
     closeTabsFor(connection.id);
   }
 
+  /** Hands the connection and its open tabs to a window of its own. */
+  async function moveToNewWindow() {
+    setError(null);
+    const failure = await moveConnectionToNewWindow(connection.id);
+    if (failure) setError(failure);
+  }
+
   const items: MenuEntry[] = [
     connection.isConnected
       ? { label: "Disconnect", onSelect: disconnect }
@@ -68,6 +76,14 @@ function RailItem({ connection }: { connection: SavedConnection }) {
     // with the new settings on save.
     { label: "Edit connection…", onSelect: () => openEdit(connection.id) },
     { label: "Copy name", onSelect: () => navigator.clipboard.writeText(connection.name) },
+    null,
+    {
+      label: "Move to new window",
+      // A window already owns one connection; moving its own connection out of
+      // it would have nowhere to go.
+      disabled: WINDOW_CONNECTION_ID === connection.id,
+      onSelect: moveToNewWindow,
+    },
     null,
     {
       label: "Remove connection",

@@ -11,6 +11,8 @@ interface SqlEditorStore {
   editor: Parameters<import("@monaco-editor/react").OnMount>[0] | null;
   /** The active editor's tab id, so Save As can read its text. */
   tabId: string | null;
+  /** The connection that editor runs against, so menu actions can check it. */
+  connectionId: string | null;
   /** The active editor's current SQL text. */
   sql: string;
   /** Whether the find-in-results bar is open. */
@@ -28,6 +30,7 @@ interface SqlEditorStore {
   register: (api: {
     editor: SqlEditorStore["editor"];
     tabId: string;
+    connectionId: string;
     sql: string;
     findOpen: boolean;
     fontSize: number;
@@ -36,6 +39,8 @@ interface SqlEditorStore {
     runCurrent: () => void;
     runAll: () => void;
   }) => void;
+  /** Called by an editor as it unmounts, so stale callbacks cannot be invoked. */
+  unregister: (tabId: string) => void;
   setSql: (sql: string) => void;
   setFindOpen: (open: boolean) => void;
   setFontSize: (size: number) => void;
@@ -50,6 +55,7 @@ interface SqlEditorStore {
 export const useSqlEditorStore = create<SqlEditorStore>((set, get) => ({
   editor: null,
   tabId: null,
+  connectionId: null,
   sql: "",
   findOpen: false,
   fontSize: 12,
@@ -62,6 +68,7 @@ export const useSqlEditorStore = create<SqlEditorStore>((set, get) => ({
     set({
       editor: api.editor,
       tabId: api.tabId,
+      connectionId: api.connectionId,
       sql: api.sql,
       findOpen: api.findOpen,
       fontSize: api.fontSize,
@@ -70,6 +77,27 @@ export const useSqlEditorStore = create<SqlEditorStore>((set, get) => ({
       runCurrent: api.runCurrent,
       runAll: api.runAll,
     }),
+
+  /**
+   * Menu items like Run reach the editor through the callbacks registered here.
+   * Left in place after the editor unmounted — which is what switching connection
+   * does — Run re-ran the query against the connection we had left.
+   */
+  unregister: (tabId) =>
+    set((s) =>
+      s.tabId === tabId
+        ? {
+            editor: null,
+            tabId: null,
+            connectionId: null,
+            sql: "",
+            columns: [],
+            rows: [],
+            runCurrent: () => {},
+            runAll: () => {},
+          }
+        : {},
+    ),
 
   setSql: (sql) => set({ sql }),
   setFindOpen: (open) => set({ findOpen: open }),

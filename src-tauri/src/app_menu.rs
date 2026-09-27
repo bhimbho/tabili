@@ -331,6 +331,19 @@ pub async fn refresh<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
 /// Forwards every click to the webview. Predefined items (copy/paste/quit…)
 /// are handled natively and never reach here.
+///
+/// Sent to the focused window only. The menu is application-wide, so a broadcast
+/// ran items like Commit or Close Tab in every open window at once — including
+/// windows showing a different connection.
 pub fn on_menu_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
-    let _ = app.emit(MENU_EVENT, id);
+    match app.webview_windows().values().find(|w| w.is_focused().unwrap_or(false)) {
+        Some(window) => {
+            let _ = window.emit(MENU_EVENT, id);
+        }
+        // No window reports focus (it can happen right after one closes): fall
+        // back to the broadcast rather than dropping the click.
+        None => {
+            let _ = app.emit(MENU_EVENT, id);
+        }
+    }
 }

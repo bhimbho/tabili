@@ -6,7 +6,22 @@ import { disableTextSubstitution } from "./lib/disableTextSubstitution";
 import { initTheme } from "./stores/themeStore";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Schema metadata barely moves, and every refetch is a round trip to a
+      // possibly remote server. The library default (always stale) re-ran every
+      // mounted introspection query on each remount.
+      staleTime: 60_000,
+      // Alt-tabbing back into the app is not a reason to re-introspect the
+      // database. Refreshing is an explicit action in the sidebar.
+      refetchOnWindowFocus: false,
+      // A failed query is nearly always a real error (bad SQL, dropped
+      // connection), not a blip worth silently retrying three times.
+      retry: false,
+    },
+  },
+});
 
 disableTextSubstitution();
 initTheme();

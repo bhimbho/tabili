@@ -9,7 +9,9 @@ interface StatusBarProps {
 export function StatusBar({ appVersion }: StatusBarProps) {
   const activeId = useConnectionsStore((s) => s.activeConnectionId);
   const connections = useConnectionsStore((s) => s.connections);
-  const pending = useChangesStore((s) => s.count());
+  // Only the connection in view: the count drives ⌘S, which commits that
+  // connection's changes.
+  const pending = useChangesStore((s) => s.count(activeId ?? undefined));
   const { open: consoleOpen, toggle } = useConsoleStore();
 
   const connection = connections.find((c) => c.id === activeId);

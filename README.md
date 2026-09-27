@@ -18,7 +18,8 @@ Early development, but usable day to day. Working today:
 - **Editing** — inline cell editing, row insert and delete, staged as pending changes and reviewed as SQL before you commit. Enum columns get a value picker and date/time columns a picker of their own. Tables without a primary key are read-only.
 - **Structure** — per-table columns, indexes, foreign keys, triggers and DDL, plus add/drop/edit column, create index and create trigger. All DDL is previewed as SQL before it runs.
 - **SQL editor** — a Monaco-based editor with syntax highlighting, run-current / run-all, beautify, result pagination, copy cell/column/row, export results to CSV or JSON, and find-in-results.
-- **Queries & history** — statement history and saved queries, plus a live console (⌘J).
+- **Queries & history** — statement history and saved queries, plus a live console (⌘J). Both list the connection in view, not every connection.
+- **Windows** — right-click a connection in the rail and pick *Move to new window* to give it a window of its own, taking its open tabs with it. The two windows share the connection pool but nothing else: filters, searches, staged edits and console output stay where they were made.
 - **Import / export** — CSV, JSON and SQL export of whole tables or a chosen subset of columns; CSV and `.sql` dump import.
 - **Native menus** — File/Edit/View/Connection/Tools with the usual shortcuts. Menu items whose feature is not built yet are shown disabled rather than hidden.
 

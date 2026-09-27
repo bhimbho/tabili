@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { TableView } from "./components/grid/TableView";
 import { SqlEditor } from "./components/connection/SqlEditor";
@@ -12,6 +12,48 @@ import { useConnectionsStore } from "./stores/connectionsStore";
 import { useDialogsStore } from "./stores/dialogsStore";
 import { useSavedConnections } from "./hooks/useConnections";
 import { useMenuActions } from "./hooks/useMenuActions";
+import {
+  WINDOW_CONNECTION_ID,
+  setWindowTitle,
+  takeHandoff,
+} from "./lib/connectionWindow";
+
+/**
+ * A window opened by "Move to new window" owns one connection: it activates it,
+ * connects if the pool was closed in the meantime, and adopts the tabs the
+ * source window handed over.
+ */
+function useAdoptedConnection() {
+  const { data: saved } = useSavedConnections();
+  const setActiveConnection = useConnectionsStore((s) => s.setActiveConnection);
+  const setConnected = useConnectionsStore((s) => s.setConnected);
+  const setActiveSchema = useConnectionsStore((s) => s.setActiveSchema);
+  const adopted = useRef(false);
+
+  useEffect(() => {
+    const connectionId = WINDOW_CONNECTION_ID;
+    if (!connectionId || adopted.current || !saved) return;
+    // Waits for the saved list so the connection exists in the store before it
+    // is made active; otherwise the sidebar renders "no connection" first.
+    if (!saved.some((c) => c.id === connectionId)) return;
+    adopted.current = true;
+
+    const handoff = takeHandoff(connectionId);
+    setActiveConnection(connectionId);
+    if (handoff?.schema) setActiveSchema(connectionId, handoff.schema);
+    for (const tab of handoff?.tabs ?? []) useTabsStore.getState().openTab(tab);
+    if (handoff?.activeTabId) useTabsStore.getState().setActiveTab(handoff.activeTabId);
+
+    const name = saved.find((c) => c.id === connectionId)?.name;
+    if (name) void setWindowTitle(`${name} — Tabili`);
+
+    // The pool is shared with the window we came from, so this is usually a
+    // no-op that just confirms the connection is live.
+    void commands.connectSaved(connectionId).then((result) => {
+      setConnected(connectionId, result.status === "ok");
+    });
+  }, [saved, setActiveConnection, setActiveSchema, setConnected]);
+}
 
 function MainPane() {
   const activeConnectionId = useConnectionsStore((s) => s.activeConnectionId);
@@ -79,6 +121,7 @@ function App() {
   const { data: saved } = useSavedConnections();
   const setConnections = useConnectionsStore((s) => s.setConnections);
   useMenuActions();
+  useAdoptedConnection();
 
   useEffect(() => {
     commands.appInfo().then((info) => setAppVersion(info.version));

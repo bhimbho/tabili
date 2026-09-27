@@ -51,6 +51,11 @@ interface SqlEditorProps {
 export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
   const [sql, setSql] = useState("");
   const [running, setRunning] = useState(false);
+  // The id of the statement currently in flight. Chosen here, before the query
+  // is sent, because cancelling needs to name it while the call is still
+  // awaiting — the QueryHandle only comes back once it is too late to matter.
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [handle, setHandle] = useState<QueryHandle | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, DbValue>[]>([]);
@@ -68,6 +73,7 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
   const log = useConsoleStore((s) => s.log);
   const themeMode = useThemeStore((s) => s.mode);
   const register = useSqlEditorStore((s) => s.register);
+  const unregister = useSqlEditorStore((s) => s.unregister);
   const storeFindOpen = useSqlEditorStore((s) => s.findOpen);
   const storeFontSize = useSqlEditorStore((s) => s.fontSize);
 
@@ -85,6 +91,7 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     register({
       editor: editorRef.current,
       tabId,
+      connectionId,
       sql,
       findOpen,
       fontSize: storeFontSize,
@@ -93,7 +100,11 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
       runCurrent: () => void runCurrent(),
       runAll: () => void runAll(),
     });
-  }, [register, tabId, sql, findOpen, storeFontSize, columns, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [register, tabId, connectionId, sql, findOpen, storeFontSize, columns, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hand the bridge back when this editor goes away, so a menu Run cannot fire
+  // into a tab — and a connection — that is no longer on screen.
+  useEffect(() => () => unregister(tabId), [unregister, tabId]);
 
   // The menu can toggle the find bar; reflect that here.
   useEffect(() => {
@@ -128,31 +139,52 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     });
   };
 
-  async function runStatement(statement: string) {
+  /** Returns false when the statement was cancelled, so a batch can stop. */
+  async function runStatement(statement: string): Promise<boolean> {
     const trimmed = statement.trim();
-    if (!trimmed || !connectionId) return;
+    if (!trimmed || !connectionId) return true;
+    const executionId = crypto.randomUUID();
     setRunning(true);
+    setRunningId(executionId);
     setError(null);
     const started = performance.now();
-    const res = await commands.runQuery(connectionId, trimmed);
+    const res = await commands.runQuery(connectionId, trimmed, executionId);
     const durationMs = Math.round(performance.now() - started);
+    setRunningId(null);
+    setCancelling(false);
     if (res.status === "error") {
       const msg = friendlyError(res.error.message);
       setError(msg);
-      log({ sql: trimmed, success: false, error: msg, durationMs });
+      log({ connectionId, sql: trimmed, success: false, error: msg, durationMs });
       setHandle(null);
       setColumns([]);
       setRows([]);
       setHasMore(false);
+      if (res.error.kind === "cancelled") {
+        setRunning(false);
+        return false;
+      }
     } else {
       const h = res.data;
       setHandle(h);
       setColumns(h.firstPage.columns);
       setRows(h.firstPage.rows);
       setHasMore(h.firstPage.hasMore);
-      log({ sql: trimmed, success: true, durationMs });
+      log({ connectionId, sql: trimmed, success: true, durationMs });
     }
     setRunning(false);
+    return true;
+  }
+
+  /** Asks the server to stop the statement in flight. */
+  async function cancelRunning() {
+    if (!runningId) return;
+    setCancelling(true);
+    const res = await commands.cancelQuery(connectionId, runningId);
+    if (res.status === "error") {
+      setCancelling(false);
+      setError(friendlyError(res.error.message));
+    }
   }
 
   async function runAll() {
@@ -160,7 +192,9 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     const statements = await commands.splitSql(sql);
     if (statements.length === 0) return;
     for (const stmt of statements) {
-      await runStatement(stmt);
+      // Cancelling one statement cancels the batch: carrying on would ignore
+      // what the button was asked to do.
+      if (!(await runStatement(stmt))) break;
     }
   }
 
@@ -290,6 +324,15 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
         >
           {running ? "Running…" : "Run current"}
         </button>
+        {running && (
+          <button
+            onClick={() => void cancelRunning()}
+            disabled={cancelling}
+            className="rounded-md bg-(--danger) px-2.5 py-1 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--danger)/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {cancelling ? "Cancelling…" : "Cancel"}
+          </button>
+        )}
         <button
           onClick={runAll}
           disabled={running || !sql.trim()}
