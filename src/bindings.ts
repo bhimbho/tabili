@@ -129,6 +129,14 @@ export const commands = {
 	userGrants: (connectionId: string, name: string, host: string | null) => typedError<DbGrant[], AppError>(__TAURI_INVOKE("user_grants", { connectionId, name, host })),
 	grantPrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("grant_privilege", { connectionId, name, host, privilege, schema, table })),
 	revokePrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("revoke_privilege", { connectionId, name, host, privilege, schema, table })),
+	/**
+	 *  Opens (or focuses) a window dedicated to one connection.
+	 * 
+	 *  Each webview runs its own copy of the frontend, so the two windows share no
+	 *  store state: a filter, search or pending edit in one cannot reach the other.
+	 *  The connection pool lives in Rust and is shared, so the new window reuses the
+	 *  connection that is already open instead of dialling again.
+	 */
 	openConnectionWindow: (connectionId: string, title: string) => typedError<string, AppError>(__TAURI_INVOKE("open_connection_window", { connectionId, title })),
 };
 
