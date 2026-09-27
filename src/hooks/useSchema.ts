@@ -32,8 +32,13 @@ export function useIntrospection(connectionId: string | null, schema?: Schema, f
       unwrap(await commands.introspectAll(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
     // Keep the current list on screen while a narrowed search is in flight, so
-    // the sidebar does not blank out between keystrokes.
-    placeholderData: (prev) => prev,
+    // the sidebar does not blank out between keystrokes — but only within one
+    // connection and schema. Carried across those, it would show one server's
+    // tables while another is selected.
+    placeholderData: (prev, prevQuery) => {
+      const key = prevQuery?.queryKey as [string, string | null, string | null, string | null];
+      return key?.[1] === connectionId && key?.[2] === (schema ?? null) ? prev : undefined;
+    },
   });
 }
 

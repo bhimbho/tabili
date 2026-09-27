@@ -163,7 +163,14 @@ export function ObjectPanel() {
     }
     closeTabsFor(connectionId);
     setActiveSchema(connectionId, "");
-    for (const key of ["server-info", "schemas", "tables", "views", "rows", "columns"]) {
+    // Rows and columns belong to the database being left, and the views holding
+    // them are unmounting. Invalidating would re-run them against the new
+    // database before that unmount commits — a query for a table that may not
+    // exist there, aimed at the pool that was just replaced. Drop them instead.
+    for (const key of ["rows", "columns"]) {
+      queryClient.removeQueries({ queryKey: [key, connectionId] });
+    }
+    for (const key of ["server-info", "schemas", "tables", "views"]) {
       queryClient.invalidateQueries({ queryKey: [key, connectionId] });
     }
     return true;

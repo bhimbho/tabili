@@ -46,8 +46,10 @@ function RailItem({ connection }: { connection: SavedConnection }) {
     setError(null);
     setConnected(connection.id, true);
     // The old pool's cached rows and schema belong to a connection that no
-    // longer exists.
-    for (const key of ["server-info", "databases", "schemas", "tables", "views", "rows"]) {
+    // longer exists. Rows are dropped rather than invalidated: re-running them
+    // would fire at the pool that has just been replaced.
+    queryClient.removeQueries({ queryKey: ["rows", connection.id] });
+    for (const key of ["server-info", "databases", "schemas", "tables", "views"]) {
       queryClient.invalidateQueries({ queryKey: [key, connection.id] });
     }
   }

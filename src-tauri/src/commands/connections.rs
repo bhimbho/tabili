@@ -324,14 +324,11 @@ pub async fn update_connection(
             }
         };
 
-        if let Some(old) = registry.remove(&id).await {
-            let _ = old.close().await;
-        }
         registry.remove_tunnel(&id).await;
         if let Some(tunnel) = tunnel {
             registry.insert_tunnel(id.clone(), tunnel).await;
         }
-        registry.insert(id.clone(), driver).await;
+        registry.replace(id.clone(), driver).await;
     }
 
     app_store.upsert(&record).await.map_err(AppError::from)?;
@@ -414,15 +411,12 @@ pub async fn connect_saved(
     // insert straight over the stale entries, leaving the previous pool and SSH
     // session running with nothing to close them. Torn down only now, so a
     // failed reconnect above leaves the old connection intact.
-    if let Some(old) = registry.remove(&id).await {
-        let _ = old.close().await;
-    }
     registry.remove_tunnel(&id).await;
 
     if let Some(tunnel) = tunnel {
         registry.insert_tunnel(id.clone(), tunnel).await;
     }
-    registry.insert(id.clone(), driver).await;
+    registry.replace(id.clone(), driver).await;
 
     Ok(OpenedConnection {
         connection_id: id,
@@ -531,10 +525,7 @@ pub async fn switch_database(
         .map_err(AppError::from)?;
 
     // Only replace the live pool once the new one is known good.
-    if let Some(old) = registry.remove(&connection_id).await {
-        let _ = old.close().await;
-    }
-    registry.insert(connection_id.clone(), driver).await;
+    registry.replace(connection_id.clone(), driver).await;
     app_store.upsert(&record).await.map_err(AppError::from)?;
     Ok(())
 }
