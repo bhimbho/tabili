@@ -31,13 +31,16 @@ export function useIntrospection(connectionId: string | null, schema?: Schema, f
     queryFn: async () =>
       unwrap(await commands.introspectAll(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
+    // Keep the current list on screen while a narrowed search is in flight, so
+    // the sidebar does not blank out between keystrokes.
+    placeholderData: (prev) => prev,
   });
 }
 
 export function useTables(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
     queryKey: ["tables", connectionId, schema ?? null, filter ?? null],
-    queryFn: async () => unwrap(await commands.listTables(connectionId as string, schema ?? null, null)),
+    queryFn: async () => unwrap(await commands.listTables(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }
@@ -45,7 +48,7 @@ export function useTables(connectionId: string | null, schema?: Schema, filter?:
 export function useViews(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
     queryKey: ["views", connectionId, schema ?? null, filter ?? null],
-    queryFn: async () => unwrap(await commands.listViews(connectionId as string, schema ?? null, null)),
+    queryFn: async () => unwrap(await commands.listViews(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }
@@ -53,7 +56,7 @@ export function useViews(connectionId: string | null, schema?: Schema, filter?: 
 export function useFunctions(connectionId: string | null, schema?: Schema, filter?: string) {
   return useQuery({
     queryKey: ["functions", connectionId, schema ?? null, filter ?? null],
-    queryFn: async () => unwrap(await commands.listFunctions(connectionId as string, schema ?? null, null)),
+    queryFn: async () => unwrap(await commands.listFunctions(connectionId as string, schema ?? null, filter ?? null)),
     enabled: !!connectionId,
   });
 }
