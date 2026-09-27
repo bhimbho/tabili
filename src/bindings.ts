@@ -129,6 +129,7 @@ export const commands = {
 	userGrants: (connectionId: string, name: string, host: string | null) => typedError<DbGrant[], AppError>(__TAURI_INVOKE("user_grants", { connectionId, name, host })),
 	grantPrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("grant_privilege", { connectionId, name, host, privilege, schema, table })),
 	revokePrivilege: (connectionId: string, name: string, host: string | null, privilege: string, schema: string | null, table: string | null) => typedError<null, AppError>(__TAURI_INVOKE("revoke_privilege", { connectionId, name, host, privilege, schema, table })),
+	openConnectionWindow: (connectionId: string, title: string) => typedError<string, AppError>(__TAURI_INVOKE("open_connection_window", { connectionId, title })),
 };
 
 /* Types */

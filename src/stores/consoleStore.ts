@@ -2,6 +2,8 @@ import { create } from "zustand";
 
 export interface ConsoleEntry {
   id: string;
+  /** Which connection ran it; null for statements that belong to no connection. */
+  connectionId: string | null;
   sql: string;
   success: boolean;
   error?: string;
@@ -15,7 +17,7 @@ interface ConsoleState {
   /** Bumped when a statement fails so the console can auto-open on errors. */
   toggle: () => void;
   setOpen: (open: boolean) => void;
-  log: (entry: Omit<ConsoleEntry, "id" | "at">) => void;
+  log: (entry: Omit<ConsoleEntry, "id" | "at" | "connectionId"> & { connectionId?: string | null }) => void;
   clear: () => void;
 }
 
@@ -28,7 +30,10 @@ export const useConsoleStore = create<ConsoleState>((set) => ({
   setOpen: (open) => set({ open }),
   log: (entry) =>
     set((s) => ({
-      entries: [{ ...entry, id: crypto.randomUUID(), at: Date.now() }, ...s.entries].slice(
+      entries: [
+        { connectionId: null, ...entry, id: crypto.randomUUID(), at: Date.now() },
+        ...s.entries,
+      ].slice(
         0,
         MAX_ENTRIES,
       ),

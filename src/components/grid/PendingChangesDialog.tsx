@@ -1,7 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { useChangesStore } from "../../stores/changesStore";
+import { useChangesStore, type RowContext } from "../../stores/changesStore";
+import { useConnectionsStore } from "../../stores/connectionsStore";
 import { commitChanges } from "../../lib/commitChanges";
 import { deleteSql, editSql, groupEdits, insertSql } from "../../lib/pendingSql";
 import { DialogCloseButton } from "../ui/DialogCloseButton";
@@ -16,27 +17,39 @@ export function PendingChangesDialog({ open, onOpenChange }: PendingChangesDialo
   const inserts = useChangesStore((s) => s.inserts);
   const deletes = useChangesStore((s) => s.deletes);
   const discardAll = useChangesStore((s) => s.discardAll);
+  const activeConnectionId = useConnectionsStore((s) => s.activeConnectionId);
   const queryClient = useQueryClient();
 
   const [committing, setCommitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
-  const editGroups = useMemo(() => groupEdits(Array.from(edits.values())), [edits]);
-  const insertList = useMemo(() => Array.from(inserts.values()), [inserts]);
-  const deleteList = useMemo(() => Array.from(deletes.values()), [deletes]);
+  // Everything here is about the connection in view. Listing other connections'
+  // staged changes made Commit and Discard reach servers the user wasn't looking
+  // at.
+  const mine = useCallback(
+    (c: RowContext) => !activeConnectionId || c.connectionId === activeConnectionId,
+    [activeConnectionId],
+  );
+
+  const editGroups = useMemo(
+    () => groupEdits(Array.from(edits.values()).filter(mine)),
+    [edits, mine],
+  );
+  const insertList = useMemo(() => Array.from(inserts.values()).filter(mine), [inserts, mine]);
+  const deleteList = useMemo(() => Array.from(deletes.values()).filter(mine), [deletes, mine]);
 
   const total = editGroups.length + insertList.length + deleteList.length;
 
   async function handleCommit() {
     setCommitting(true);
-    const newErrors = await commitChanges(queryClient);
+    const newErrors = await commitChanges(queryClient, activeConnectionId ?? undefined);
     setErrors(newErrors);
     setCommitting(false);
     if (newErrors.length === 0) onOpenChange(false);
   }
 
   function handleDiscard() {
-    discardAll();
+    discardAll(activeConnectionId ?? undefined);
     setErrors([]);
     onOpenChange(false);
   }

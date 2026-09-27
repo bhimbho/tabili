@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { useConsoleStore } from "../../stores/consoleStore";
+import { useConnectionsStore } from "../../stores/connectionsStore";
 
 function time(at: number) {
   return new Date(at).toLocaleTimeString(undefined, { hour12: false });
@@ -6,6 +8,15 @@ function time(at: number) {
 
 export function ConsolePanel() {
   const { entries, open, clear, setOpen } = useConsoleStore();
+  const activeConnectionId = useConnectionsStore((s) => s.activeConnectionId);
+
+  // Statements are shown for the connection in view only. A shared list meant a
+  // query run on one server appeared in the console of another, reading as if it
+  // had run there.
+  const shown = useMemo(
+    () => entries.filter((e) => e.connectionId === null || e.connectionId === activeConnectionId),
+    [entries, activeConnectionId],
+  );
 
   if (!open) return null;
 
@@ -33,13 +44,13 @@ export function ConsolePanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-        {entries.length === 0 ? (
+        {shown.length === 0 ? (
           <p className="text-xs text-(--text-faint)">
             Statements run by Tabili appear here as they execute.
           </p>
         ) : (
           <div className="space-y-1.5">
-            {entries.map((e) => (
+            {shown.map((e) => (
               <div key={e.id} className="selectable font-mono text-[11px] leading-relaxed">
                 <div className="flex items-baseline gap-2">
                   <span className="shrink-0 text-(--text-faint)">{time(e.at)}</span>

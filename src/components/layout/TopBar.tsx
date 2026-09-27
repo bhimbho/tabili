@@ -28,7 +28,9 @@ export function TopBar() {
   const activeTab = useTabsStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
   const { sidebarVisible, toggleSidebar, detailsVisible, toggleDetails } = useLayoutStore();
   const { mode: themeMode, toggle: toggleTheme } = useThemeStore();
-  const pendingCount = useChangesStore((s) => s.count());
+  // Scoped to the connection in view: another connection's staged edits are not
+  // discarded by reloading this one, so counting them here overstated the loss.
+  const pendingCount = useChangesStore((s) => s.count(activeId ?? undefined));
   const discardAll = useChangesStore((s) => s.discardAll);
   const queryClient = useQueryClient();
   const [confirmReload, setConfirmReload] = useState(false);
@@ -168,7 +170,7 @@ export function TopBar() {
         confirmLabel="Discard and reload"
         danger
         onConfirm={() => {
-          discardAll();
+          discardAll(activeId ?? undefined);
           reloadConnection();
           setConfirmReload(false);
         }}

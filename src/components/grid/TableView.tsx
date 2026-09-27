@@ -199,6 +199,7 @@ export function TableView({ connectionId, table, schema, seedFilter }: TableView
   return (
     <div className="flex h-full flex-col">
       <GridToolbar
+        connectionId={connectionId}
         tab={tab}
         hasPk={hasPk}
         columnsError={columnsError ? (columnsError as Error).message : null}

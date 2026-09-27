@@ -1,18 +1,29 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { commands } from "../bindings";
-import { useChangesStore, type PendingDelete } from "../stores/changesStore";
+import { useChangesStore, rowKeyOf, type PendingDelete, type RowContext } from "../stores/changesStore";
 import { useConsoleStore } from "../stores/consoleStore";
 import { friendlyError } from "./errors";
 import { groupEdits } from "./pendingSql";
 
 /**
- * Applies every staged change. Shared by the review dialog and ⌘S so both take
- * exactly the same path — ⌘S is simply the version without the confirmation step.
- * Successful items are dropped from the store as they land, so a partial failure
- * leaves only the statements that still need attention.
+ * Applies the staged changes for one connection. Shared by the review dialog and
+ * ⌘S so both take exactly the same path — ⌘S is simply the version without the
+ * confirmation step. Successful items are dropped from the store as they land, so
+ * a partial failure leaves only the statements that still need attention.
+ *
+ * `connectionId` is required in practice: committing from one connection used to
+ * write every connection's staged edits, so a ⌘S meant for a local database also
+ * wrote to whatever else was open. Omit it only to deliberately commit everything.
  */
-export async function commitChanges(queryClient: QueryClient): Promise<string[]> {
-  const { edits, inserts, deletes } = useChangesStore.getState();
+export async function commitChanges(
+  queryClient: QueryClient,
+  connectionId?: string,
+): Promise<string[]> {
+  const state = useChangesStore.getState();
+  const mine = (c: RowContext) => !connectionId || c.connectionId === connectionId;
+  const edits = new Map(Array.from(state.edits).filter(([, v]) => mine(v)));
+  const inserts = new Map(Array.from(state.inserts).filter(([, v]) => mine(v)));
+  const deletes = new Map(Array.from(state.deletes).filter(([, v]) => mine(v)));
   const log = useConsoleStore.getState().log;
   const errors: string[] = [];
   const touched = new Set<string>();
@@ -23,13 +34,18 @@ export async function commitChanges(queryClient: QueryClient): Promise<string[]>
     if (result.status === "error") {
       const message = friendlyError(result.error.message);
       errors.push(message);
-      log({ sql: `UPDATE ${g.table}`, success: false, error: result.error.message });
+      log({ connectionId: g.connectionId, sql: `UPDATE ${g.table}`, success: false, error: result.error.message });
     } else {
-      log({ sql: result.data, success: true });
+      log({ connectionId: g.connectionId, sql: result.data, success: true });
       useChangesStore.setState((s) => {
         const next = new Map(s.edits);
         for (const [key, e] of next) {
-          if (e.connectionId === g.connectionId && e.table === g.table && e.pkKey === g.pkKey) {
+          if (
+            e.connectionId === g.connectionId &&
+            e.schema === g.schema &&
+            e.table === g.table &&
+            e.pkKey === g.pkKey
+          ) {
             next.delete(key);
           }
         }
@@ -43,9 +59,9 @@ export async function commitChanges(queryClient: QueryClient): Promise<string[]>
     touched.add(i.connectionId);
     if (result.status === "error") {
       errors.push(friendlyError(result.error.message));
-      log({ sql: `INSERT INTO ${i.table}`, success: false, error: result.error.message });
+      log({ connectionId: i.connectionId, sql: `INSERT INTO ${i.table}`, success: false, error: result.error.message });
     } else {
-      log({ sql: result.data, success: true });
+      log({ connectionId: i.connectionId, sql: result.data, success: true });
       useChangesStore.getState().removeInsert(i.tempId);
     }
   }
@@ -61,12 +77,12 @@ export async function commitChanges(queryClient: QueryClient): Promise<string[]>
     touched.add(connectionId);
     if (result.status === "error") {
       errors.push(friendlyError(result.error.message));
-      log({ sql: `DELETE FROM ${table}`, success: false, error: result.error.message });
+      log({ connectionId, sql: `DELETE FROM ${table}`, success: false, error: result.error.message });
     } else {
-      result.data.forEach((sql) => log({ sql, success: true }));
+      result.data.forEach((sql) => log({ connectionId, sql, success: true }));
       useChangesStore.setState((s) => {
         const next = new Map(s.deletes);
-        for (const d of group) next.delete(`${d.connectionId}:${d.table}:${d.pkKey}`);
+        for (const d of group) next.delete(rowKeyOf(d, d.pkKey));
         return { deletes: next };
       });
     }

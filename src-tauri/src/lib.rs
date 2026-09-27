@@ -11,8 +11,23 @@ mod ssh_tunnel;
 
 use app_store::AppStore;
 use connection_registry::ConnectionRegistry;
-use tauri::Manager;
+use tauri::{Manager, Runtime, WebviewWindow};
 use tauri_specta::{collect_commands, Builder};
+
+/// Applied to every window we create, not just the one from the config, so a
+/// per-connection window gets the same translucent chrome as the main one.
+/// A transparent window without it renders as a hole in the desktop.
+pub fn apply_window_vibrancy<R: Runtime>(window: &WebviewWindow<R>) {
+    #[cfg(target_os = "macos")]
+    {
+        use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+        if let Err(e) = apply_vibrancy(window, NSVisualEffectMaterial::Sidebar, None, None) {
+            tracing::error!("failed to apply window vibrancy: {e}");
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -80,6 +95,7 @@ pub fn run() {
         commands::users::user_grants,
         commands::users::grant_privilege,
         commands::users::revoke_privilege,
+        commands::windows::open_connection_window,
     ]);
 
     #[cfg(debug_assertions)]
@@ -117,12 +133,8 @@ pub fn run() {
                 }
             });
 
-            #[cfg(target_os = "macos")]
-            {
-                use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-                let window = app.get_webview_window("main").unwrap();
-                apply_vibrancy(&window, NSVisualEffectMaterial::Sidebar, None, None)
-                    .expect("failed to apply vibrancy");
+            if let Some(window) = app.get_webview_window("main") {
+                apply_window_vibrancy(&window);
             }
 
             Ok(())

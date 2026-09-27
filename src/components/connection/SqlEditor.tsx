@@ -68,6 +68,7 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
   const log = useConsoleStore((s) => s.log);
   const themeMode = useThemeStore((s) => s.mode);
   const register = useSqlEditorStore((s) => s.register);
+  const unregister = useSqlEditorStore((s) => s.unregister);
   const storeFindOpen = useSqlEditorStore((s) => s.findOpen);
   const storeFontSize = useSqlEditorStore((s) => s.fontSize);
 
@@ -85,6 +86,7 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     register({
       editor: editorRef.current,
       tabId,
+      connectionId,
       sql,
       findOpen,
       fontSize: storeFontSize,
@@ -93,7 +95,11 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
       runCurrent: () => void runCurrent(),
       runAll: () => void runAll(),
     });
-  }, [register, tabId, sql, findOpen, storeFontSize, columns, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [register, tabId, connectionId, sql, findOpen, storeFontSize, columns, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hand the bridge back when this editor goes away, so a menu Run cannot fire
+  // into a tab — and a connection — that is no longer on screen.
+  useEffect(() => () => unregister(tabId), [unregister, tabId]);
 
   // The menu can toggle the find bar; reflect that here.
   useEffect(() => {
@@ -139,7 +145,7 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     if (res.status === "error") {
       const msg = friendlyError(res.error.message);
       setError(msg);
-      log({ sql: trimmed, success: false, error: msg, durationMs });
+      log({ connectionId, sql: trimmed, success: false, error: msg, durationMs });
       setHandle(null);
       setColumns([]);
       setRows([]);
@@ -150,7 +156,7 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
       setColumns(h.firstPage.columns);
       setRows(h.firstPage.rows);
       setHasMore(h.firstPage.hasMore);
-      log({ sql: trimmed, success: true, durationMs });
+      log({ connectionId, sql: trimmed, success: true, durationMs });
     }
     setRunning(false);
   }

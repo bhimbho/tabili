@@ -346,7 +346,7 @@ export function ObjectPanel() {
         </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1">
-        {tab === "history" && <HistoryPanel search={search} />}
+        {tab === "history" && <HistoryPanel search={search} connectionId={connectionId} />}
         {tab === "queries" && <QueriesPanel search={search} />}
 
         {tab === "items" && !connected && (

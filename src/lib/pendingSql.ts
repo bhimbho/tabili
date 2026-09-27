@@ -14,7 +14,9 @@ export interface EditGroup {
 export function groupEdits(edits: PendingEdit[]): EditGroup[] {
   const groups = new Map<string, EditGroup>();
   for (const edit of edits) {
-    const groupKey = `${edit.connectionId}:${edit.table}:${edit.pkKey}`;
+    // Schema included: without it, edits to same-named tables in two schemas
+    // collapsed into one UPDATE aimed at whichever schema was seen first.
+    const groupKey = `${edit.connectionId}:${edit.schema ?? ""}:${edit.table}:${edit.pkKey}`;
     const existing = groups.get(groupKey);
     if (existing) {
       existing.changes[edit.column] = edit.newValue;
