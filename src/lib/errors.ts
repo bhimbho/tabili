@@ -81,6 +81,7 @@ const MAPPINGS: Rule[] = [
     match: /value too long for type character varying\((\d+)\)/i,
     message: (m) => `That value is too long — the limit is ${m[1]} characters.`,
   },
+  { match: /^query cancelled$/i, message: () => "Query cancelled." },
   { match: /permission denied/i, message: () => "You don't have permission to do that." },
   {
     match: /password authentication failed|authentication failed/i,

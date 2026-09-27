@@ -7,6 +7,8 @@ pub enum DbError {
     Connection(String),
     #[error("query failed: {0}")]
     Query(String),
+    #[error("query cancelled")]
+    Cancelled,
     #[error("unsupported operation for this driver: {0}")]
     Unsupported(String),
     #[error("table has no primary key, cannot perform row-level edits")]
@@ -27,6 +29,7 @@ impl From<DbError> for AppError {
         let kind = match &err {
             DbError::Connection(_) => "connection",
             DbError::Query(_) => "query",
+            DbError::Cancelled => "cancelled",
             DbError::Unsupported(_) => "unsupported",
             DbError::NoPrimaryKey => "no_primary_key",
             DbError::Other(_) => "other",

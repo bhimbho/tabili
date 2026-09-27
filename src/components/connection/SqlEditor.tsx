@@ -51,6 +51,11 @@ interface SqlEditorProps {
 export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
   const [sql, setSql] = useState("");
   const [running, setRunning] = useState(false);
+  // The id of the statement currently in flight. Chosen here, before the query
+  // is sent, because cancelling needs to name it while the call is still
+  // awaiting — the QueryHandle only comes back once it is too late to matter.
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [handle, setHandle] = useState<QueryHandle | null>(null);
   const [columns, setColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, DbValue>[]>([]);
@@ -134,14 +139,19 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     });
   };
 
-  async function runStatement(statement: string) {
+  /** Returns false when the statement was cancelled, so a batch can stop. */
+  async function runStatement(statement: string): Promise<boolean> {
     const trimmed = statement.trim();
-    if (!trimmed || !connectionId) return;
+    if (!trimmed || !connectionId) return true;
+    const executionId = crypto.randomUUID();
     setRunning(true);
+    setRunningId(executionId);
     setError(null);
     const started = performance.now();
-    const res = await commands.runQuery(connectionId, trimmed);
+    const res = await commands.runQuery(connectionId, trimmed, executionId);
     const durationMs = Math.round(performance.now() - started);
+    setRunningId(null);
+    setCancelling(false);
     if (res.status === "error") {
       const msg = friendlyError(res.error.message);
       setError(msg);
@@ -150,6 +160,10 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
       setColumns([]);
       setRows([]);
       setHasMore(false);
+      if (res.error.kind === "cancelled") {
+        setRunning(false);
+        return false;
+      }
     } else {
       const h = res.data;
       setHandle(h);
@@ -159,6 +173,18 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
       log({ connectionId, sql: trimmed, success: true, durationMs });
     }
     setRunning(false);
+    return true;
+  }
+
+  /** Asks the server to stop the statement in flight. */
+  async function cancelRunning() {
+    if (!runningId) return;
+    setCancelling(true);
+    const res = await commands.cancelQuery(connectionId, runningId);
+    if (res.status === "error") {
+      setCancelling(false);
+      setError(friendlyError(res.error.message));
+    }
   }
 
   async function runAll() {
@@ -166,7 +192,9 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
     const statements = await commands.splitSql(sql);
     if (statements.length === 0) return;
     for (const stmt of statements) {
-      await runStatement(stmt);
+      // Cancelling one statement cancels the batch: carrying on would ignore
+      // what the button was asked to do.
+      if (!(await runStatement(stmt))) break;
     }
   }
 
@@ -296,6 +324,15 @@ export function SqlEditor({ connectionId, tabId }: SqlEditorProps) {
         >
           {running ? "Running…" : "Run current"}
         </button>
+        {running && (
+          <button
+            onClick={() => void cancelRunning()}
+            disabled={cancelling}
+            className="rounded-md bg-(--danger) px-2.5 py-1 text-xs font-medium text-(--accent-text) transition-colors hover:bg-(--danger)/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {cancelling ? "Cancelling…" : "Cancel"}
+          </button>
+        )}
         <button
           onClick={runAll}
           disabled={running || !sql.trim()}

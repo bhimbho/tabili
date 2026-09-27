@@ -12,9 +12,9 @@ use std::sync::Mutex;
 use sqlx::Row;
 
 use crate::db::{
-    filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
+    filter, split_page, CachedResult, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
     DbError, DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle,
-    RowPage, SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
+    QueryCache, RowPage, SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
     TriggerInfo, ServerInfo, FunctionInfo, DbUser, DbGrant,
 };
 use introspect::{quote_ident, quote_qualified};
@@ -25,17 +25,12 @@ const DEFAULT_SCHEMA: &str = "public";
 /// via `fetch_more` against an in-memory buffer keyed by execution id.
 const QUERY_PAGE_SIZE: usize = 500;
 
-/// A fully-materialized result set held for a single query execution, so the
-/// frontend can page through it with `fetch_more` without re-running the SQL.
-struct CachedResult {
-    columns: Vec<String>,
-    rows: Vec<HashMap<String, DbValue>>,
-    sql: String,
-}
-
 pub struct PostgresDriver {
     pool: sqlx::PgPool,
-    query_cache: Mutex<HashMap<String, CachedResult>>,
+    query_cache: QueryCache,
+    /// Backend PID per in-flight execution, so `cancel` can reach the server
+    /// process actually running the statement.
+    running: Mutex<HashMap<String, i32>>,
 }
 
 impl PostgresDriver {
@@ -86,7 +81,7 @@ impl PostgresDriver {
             .connect_with(opts)
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;
-        Ok(Self { pool, query_cache: Mutex::new(HashMap::new()) })
+        Ok(Self { pool, query_cache: QueryCache::new(), running: Mutex::new(HashMap::new()) })
     }
 
     fn schema_of<'a>(schema: &'a SchemaRef) -> &'a str {
@@ -243,11 +238,36 @@ impl DatabaseDriver for PostgresDriver {
         Ok(RowPage { columns, rows: out_rows, has_more, sql: query })
     }
 
-    async fn run_query(&self, sql: &str) -> Result<QueryHandle, DbError> {
-        let rows = sqlx::query(sqlx::AssertSqlSafe(sql.to_string()))
-            .fetch_all(&self.pool)
+    async fn run_query(&self, sql: &str, execution_id: &str) -> Result<QueryHandle, DbError> {
+        // The statement runs on one explicitly-held connection so its backend
+        // PID is known; `cancel` needs that PID to stop it from a second
+        // connection while this one is blocked.
+        let mut conn = self
+            .pool
+            .acquire()
+            .await
+            .map_err(|e| DbError::Connection(e.to_string()))?;
+        let pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| DbError::Query(e.to_string()))?;
+        self.running.lock().unwrap().insert(execution_id.to_string(), pid);
+
+        let result = sqlx::query(sqlx::AssertSqlSafe(sql.to_string()))
+            .fetch_all(&mut *conn)
+            .await;
+        self.running.lock().unwrap().remove(execution_id);
+        drop(conn);
+
+        let rows = result.map_err(|e| {
+            // 57014 is what the server reports for a statement stopped by
+            // pg_cancel_backend; to the user that was a button, not a failure.
+            if e.as_database_error().and_then(|d| d.code()).as_deref() == Some("57014") {
+                DbError::Cancelled
+            } else {
+                DbError::Query(e.to_string())
+            }
+        })?;
 
         let mut columns: Vec<String> = Vec::new();
         let mut all_rows = Vec::new();
@@ -262,11 +282,8 @@ impl DatabaseDriver for PostgresDriver {
             all_rows.push(map);
         }
 
-        let execution_id = uuid::Uuid::new_v4().to_string();
         let cached = CachedResult { columns, rows: all_rows, sql: sql.to_string() };
-
-        let (first_page_rows, has_more) =
-            split_page(&cached.rows, QUERY_PAGE_SIZE);
+        let (first_page_rows, has_more) = split_page(&cached.rows, QUERY_PAGE_SIZE);
         let first_page = RowPage {
             columns: cached.columns.clone(),
             rows: first_page_rows,
@@ -274,42 +291,27 @@ impl DatabaseDriver for PostgresDriver {
             sql: sql.to_string(),
         };
 
-        self.query_cache
-            .lock()
-            .unwrap()
-            .insert(execution_id.clone(), cached);
+        self.query_cache.insert(execution_id.to_string(), cached);
 
         Ok(QueryHandle {
-            execution_id: QueryExecutionId(execution_id),
+            execution_id: QueryExecutionId(execution_id.to_string()),
             first_page,
         })
     }
 
     async fn fetch_more(&self, handle: &QueryExecutionId, n: u32) -> Result<RowPage, DbError> {
-        let mut cache = self.query_cache.lock().unwrap();
-        let cached = cache
-            .get_mut(&handle.0)
-            .ok_or_else(|| DbError::Query("unknown or expired query execution".into()))?;
-
-        let offset = n as usize;
-        let next = cached
-            .rows
-            .iter()
-            .skip(offset)
-            .take(QUERY_PAGE_SIZE)
-            .cloned()
-            .collect::<Vec<_>>();
-        let has_more = offset + next.len() < cached.rows.len();
-
-        Ok(RowPage {
-            columns: cached.columns.clone(),
-            rows: next,
-            has_more,
-            sql: cached.sql.clone(),
-        })
+        self.query_cache.page(&handle.0, n as usize, QUERY_PAGE_SIZE)
     }
 
-    async fn cancel(&self, _handle: &QueryExecutionId) -> Result<(), DbError> {
+    async fn cancel(&self, handle: &QueryExecutionId) -> Result<(), DbError> {
+        let pid = self.running.lock().unwrap().get(&handle.0).copied();
+        // No PID means the statement already finished — nothing to stop.
+        let Some(pid) = pid else { return Ok(()) };
+        sqlx::query("SELECT pg_cancel_backend($1)")
+            .bind(pid)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Query(e.to_string()))?;
         Ok(())
     }
 

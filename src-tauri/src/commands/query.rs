@@ -44,10 +44,13 @@ pub async fn run_query(
     app_store: State<'_, AppStore>,
     connection_id: String,
     sql: String,
+    execution_id: String,
 ) -> Result<QueryHandle, AppError> {
     let driver = resolve(&registry, &connection_id).await?;
     let started = Instant::now();
-    let result = driver.run_query(&sql).await;
+    // The caller names the execution up front so it can cancel this statement
+    // while it is still running; the id it gets back is the one it passed in.
+    let result = driver.run_query(&sql, &execution_id).await;
 
     match result {
         Ok(handle) => {

@@ -6,11 +6,10 @@ mod mutate;
 use async_trait::async_trait;
 use sqlx::Row;
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 use crate::db::{
-    filter, split_page, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
-    DbError, DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryExecutionId, QueryHandle,
+    filter, split_page, CachedResult, ColumnInfo, ConnectionConfig, ConstraintInfo, DatabaseDriver, DatabaseInfo,
+    DbError, DbValue, FetchOptions, ForeignKeyInfo, IndexInfo, QueryCache, QueryExecutionId, QueryHandle,
     RowPage, SchemaInfo, SchemaRef, SqlDialect, TableDiff, TableInfo, TableRef, TableSpec,
     TriggerInfo, ServerInfo, FunctionInfo, DbUser, DbGrant,
 };
@@ -20,15 +19,9 @@ use introspect::quote_ident;
 /// via `fetch_more` against an in-memory buffer.
 const QUERY_PAGE_SIZE: usize = 500;
 
-struct CachedResult {
-    columns: Vec<String>,
-    rows: Vec<HashMap<String, DbValue>>,
-    sql: String,
-}
-
 pub struct SqliteDriver {
     pool: sqlx::SqlitePool,
-    query_cache: Mutex<HashMap<String, CachedResult>>,
+    query_cache: QueryCache,
 }
 
 impl SqliteDriver {
@@ -47,7 +40,7 @@ impl SqliteDriver {
             .connect(&format!("sqlite://{path}"))
             .await
             .map_err(|e| DbError::Connection(e.to_string()))?;
-        Ok(Self { pool, query_cache: Mutex::new(HashMap::new()) })
+        Ok(Self { pool, query_cache: QueryCache::new() })
     }
 }
 
@@ -174,7 +167,7 @@ impl DatabaseDriver for SqliteDriver {
         Ok(RowPage { columns, rows: out_rows, has_more, sql: query })
     }
 
-    async fn run_query(&self, sql: &str) -> Result<QueryHandle, DbError> {
+    async fn run_query(&self, sql: &str, execution_id: &str) -> Result<QueryHandle, DbError> {
         let rows = sqlx::query(sqlx::AssertSqlSafe(sql.to_string()))
             .fetch_all(&self.pool)
             .await
@@ -193,9 +186,7 @@ impl DatabaseDriver for SqliteDriver {
             all_rows.push(map);
         }
 
-        let execution_id = uuid::Uuid::new_v4().to_string();
         let cached = CachedResult { columns, rows: all_rows, sql: sql.to_string() };
-
         let (first_page_rows, has_more) = split_page(&cached.rows, QUERY_PAGE_SIZE);
         let first_page = RowPage {
             columns: cached.columns.clone(),
@@ -204,43 +195,24 @@ impl DatabaseDriver for SqliteDriver {
             sql: sql.to_string(),
         };
 
-        self.query_cache
-            .lock()
-            .unwrap()
-            .insert(execution_id.clone(), cached);
+        self.query_cache.insert(execution_id.to_string(), cached);
 
         Ok(QueryHandle {
-            execution_id: QueryExecutionId(execution_id),
+            execution_id: QueryExecutionId(execution_id.to_string()),
             first_page,
         })
     }
 
     async fn fetch_more(&self, handle: &QueryExecutionId, n: u32) -> Result<RowPage, DbError> {
-        let mut cache = self.query_cache.lock().unwrap();
-        let cached = cache
-            .get_mut(&handle.0)
-            .ok_or_else(|| DbError::Query("unknown or expired query execution".into()))?;
-
-        let offset = n as usize;
-        let next = cached
-            .rows
-            .iter()
-            .skip(offset)
-            .take(QUERY_PAGE_SIZE)
-            .cloned()
-            .collect::<Vec<_>>();
-        let has_more = offset + next.len() < cached.rows.len();
-
-        Ok(RowPage {
-            columns: cached.columns.clone(),
-            rows: next,
-            has_more,
-            sql: cached.sql.clone(),
-        })
+        self.query_cache.page(&handle.0, n as usize, QUERY_PAGE_SIZE)
     }
 
+    /// Not supported: stopping a statement mid-flight needs `sqlite3_interrupt`
+    /// on the raw handle, which sqlx does not expose through the pool. The
+    /// database is a local file, so a query here is bounded by local I/O rather
+    /// than by a server that might sit on it indefinitely.
     async fn cancel(&self, _handle: &QueryExecutionId) -> Result<(), DbError> {
-        Ok(())
+        Err(DbError::Unsupported("cancelling a running SQLite query".into()))
     }
 
     async fn insert_row(
